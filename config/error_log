@@ -1,0 +1,20 @@
+[26-Jan-2025 08:00:46 America/Chicago] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php:19
+Stack trace:
+#0 {main}
+  thrown in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php on line 19
+[26-Jan-2025 08:00:47 America/Chicago] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/cache.php:18
+Stack trace:
+#0 {main}
+  thrown in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/cache.php on line 18
+[11-Feb-2025 18:26:39 America/Chicago] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php:19
+Stack trace:
+#0 {main}
+  thrown in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php on line 19
+[13-Feb-2025 03:22:51 America/Chicago] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php:19
+Stack trace:
+#0 {main}
+  thrown in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/database.php on line 19
+[19-Feb-2025 17:42:21 America/Chicago] PHP Fatal error:  Uncaught Error: Call to undefined function env() in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/app.php:16
+Stack trace:
+#0 {main}
+  thrown in /home1/sistemas/cmd.actuarfamiempresas.org.co/config/app.php on line 16
