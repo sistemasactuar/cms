@@ -6,11 +6,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -18,9 +18,17 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
+        'name', // Nombre del usuario
+        'email', // Correo electrónico
+        'password', // Contraseña
+        'tipoDocumento', // Tipo de Documento (PER_TIPDOC_COD)
+        'numeroDocumento', // Número de Documento (PER_DOCUMENTO)
+        'nombres', // Nombres (PER_NOMBRE)
+        'apellidos', // Apellidos (PER_APELLIDOS)
+        'codigo', // Código del Funcionario (USUCADV_CODIGO)
+        'perfil_id', // ID del Perfil
+        'proceso_id', // ID del Proceso
+        'activo', // Activo/Inactivo
     ];
 
     /**
@@ -45,4 +53,13 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function username(): string
+    {
+        return 'username';
+    }
+    /* public function canAccessPanel(Panel $panel): bool
+     {
+         return $this->hasRole(['Superadmin','admin']);
+     }*/
 }
