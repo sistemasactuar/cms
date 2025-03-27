@@ -99,8 +99,8 @@ class RoleResource extends Resource
         ];
     }
 
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->where('name', '!=', 'Superadmin');
-    }
+    // public static function getEloquentQuery(): Builder
+    // {
+    //     return parent::getEloquentQuery()->where('name', '!=', 'Superadmin');
+    // }
 }

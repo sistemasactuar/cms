@@ -32,7 +32,7 @@ class SedeResource extends Resource
         return $form
             ->schema([
                 Card::make('Configuración')->schema([
-                    TextInput::make('nombresede')
+                    TextInput::make('NombreSede')
                         ->label('Nombre de la Sede')
                         ->required()
                         ->unique(ignoreRecord: true)
@@ -51,7 +51,7 @@ class SedeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nombresede')
+                Tables\Columns\TextColumn::make('NombreSede')
                     ->label('Nombre de la Sede')
                     ->sortable()
                     ->searchable(),

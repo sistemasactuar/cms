@@ -136,7 +136,7 @@ class UserResource extends Resource
                 Tables\Actions\EditAction::make(),
                 Action::make('anular')
                     ->label('Inactivar')
-                    ->icon('fluentui-document-dismiss-20-o')
+                    ->icon('heroicon-o-document')
                     ->modalButton('Cerrar')
                     ->slideOver()
                     ->form([

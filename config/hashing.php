@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'default' => 'bcrypt',
+    'default' => env('HASH_DRIVER', 'bcrypt'),
 
     'hashers' => [
         'bcrypt' => [
