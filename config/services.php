@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'odin' => [
+    'client_id' => env('ODIN_CLIENT_ID'),
+    'client_secret' => env('ODIN_CLIENT_SECRET'),
+    ],
+
+
 ];
