@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Analistas;
 
 class Sede extends Model
 {
@@ -14,8 +15,8 @@ class Sede extends Model
         'activo',     // SEDE_EST  Indica si está activa
     ];
 
-    public function puntos()
+    public function analistas()
     {
-        return $this->hasMany(Punto::class, 'idSede');
+        return $this->hasMany(Analistas::class);
     }
 }

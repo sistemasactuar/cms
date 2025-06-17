@@ -50,7 +50,7 @@ class ApplicationResource extends Resource
                     ->required()
                     ->unique()
                     ->maxLength(255),
-                
+
                 Textarea::make('description')
                     ->label('Descripción')
                     ->rows(3),
@@ -71,7 +71,7 @@ class ApplicationResource extends Resource
                     ])
                     ->default('Activo')
                     ->required(),
-                    
+
                     Forms\Components\ToggleButtons::make('publico')
                     ->label('¿Es pública?')
                     ->boolean()
