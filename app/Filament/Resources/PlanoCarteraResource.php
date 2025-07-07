@@ -6,7 +6,7 @@ use Filament\Forms;
 use Filament\Tables;
 use Filament\Forms\Form;
 use Filament\Tables\Table;
-use App\Models\plano_cartera;
+use App\Models\Plano_cartera;
 use Filament\Resources\Resource;
 use Filament\Forms\Components\Card;
 use Filament\Tables\Actions\Action;
