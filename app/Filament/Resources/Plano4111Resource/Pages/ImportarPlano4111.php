@@ -41,6 +41,25 @@ class ImportarPlano4111 extends Page
         ];
     }
 
+    public function importar()
+    {
+        request()->validate([
+            'archivo' => 'required|file|mimes:xlsx,xls',
+        ]);
+
+        $file = request()->file('archivo');
+        $path = $file->store('importaciones-temporales');
+
+        Excel::import(new Plano4111Import, $path);
+
+        Notification::make()
+            ->title('Importación completada correctamente.')
+            ->success()
+            ->send();
+
+        return redirect(Plano4111Resource::getUrl('index'));
+    }
+
     public function importarArchivo()
     {
         $this->validate([
