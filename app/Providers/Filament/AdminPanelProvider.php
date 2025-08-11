@@ -57,6 +57,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->renderHook(
+                'panels::topbar.end',
+                fn () => view('components.online-status'),
+            );
     }
 }

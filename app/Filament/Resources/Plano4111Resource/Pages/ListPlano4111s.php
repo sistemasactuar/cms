@@ -13,13 +13,16 @@ class ListPlano4111s extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\Action::make('Importar XLSX')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('primary')
-                ->url(route('filament.admin.pages.plano4111.importar')) // Usa el nombre manual
-                ->openUrlInNewTab(),
-        ];
+        $user = auth()->user();
 
+        // Mostrar el botón "Crear" solo si el usuario tiene el permiso
+        if ($user->hasRole(['admin', 'superadmin']) || $user->can('Crear Recurso')) {
+            return [
+               // Actions\CreateAction::make(),
+            ];
+        }
+
+        // Si no tiene permisos, no muestra ninguna acción
+        return [];
     }
 }
