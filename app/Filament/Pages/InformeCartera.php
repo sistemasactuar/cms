@@ -10,6 +10,7 @@ use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Concerns\InteractsWithForms;
+use Cheesegrits\FilamentGoogleMaps\Fields\Map;
 
 class InformeCartera extends Page implements HasForms
 {
