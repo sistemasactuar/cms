@@ -46,34 +46,48 @@ class ActividadesResource extends Resource
                     ->default(EstadoActividad::EnCurso->value),
 
                 Forms\Components\Hidden::make('user_id')
-                    ->default(fn () => Auth::id())
+                    ->default(fn() => Auth::id())
                     ->dehydrated(),
             ]),
+            Forms\Components\TextInput::make('full_address')
+                ->label('Dirección completa')
+                ->columnSpanFull()
+                ->required(),
+
             Forms\Components\TextInput::make('latitud')
-            ->label('Latitud')
-            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                $set('location', [
-                    'lat' => floatVal($state),
-                    'lng' => floatVal($get('longitud')),
-                ]);
-            })
-            ->reactive()
-            ->lazy(), // important to use lazy, to avoid updates as you type
-        Forms\Components\TextInput::make('longitud')
-            ->label('Longitud')
-            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                $set('location', [
-                    'lat' => floatval($get('latitud')),
-                    'lng' => floatVal($state),
-                ]);
-            })
-            ->reactive()
-            ->lazy(),
+                ->label('Latitud')
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $set('location', [
+                        'lat' => floatVal($state),
+                        'lng' => floatVal($get('longitud')),
+                    ]);
+                })
+                ->reactive()
+                ->lazy(), // important to use lazy, to avoid updates as you type
+            Forms\Components\TextInput::make('longitud')
+                ->label('Longitud')
+                ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                    $set('location', [
+                        'lat' => floatval($get('latitud')),
+                        'lng' => floatVal($state),
+                    ]);
+                })
+                ->reactive()
+                ->lazy(),
             Forms\Components\Section::make('Ubicación')->schema([
                 Map::make('location') // ← usa la propiedad computada del modelo
                     ->label('Mapa')
+                    ->mapControls([
+                        'mapTypeControl'    => true,
+                        'scaleControl'      => true,
+                        'streetViewControl' => true,
+                        'rotateControl'     => true,
+                        'fullscreenControl' => true,
+                        'searchBoxControl'  => true, // creates geocomplete field inside map
+                        'zoomControl'       => true,
+                    ])
                     ->defaultLocation([4.536154, -75.668694]) // Armenia (ajusta)
-                    ->defaultZoom(13)
+                    ->defaultZoom(16)
                     ->height('400px')
                     ->draggable()
                     ->clickable()
@@ -108,7 +122,7 @@ class ActividadesResource extends Resource
                         'success' => \App\Enums\EstadoActividad::Ejecutada->value,
                         'gray'    => \App\Enums\EstadoActividad::Finalizada->value,
                     ])
-                    ->formatStateUsing(fn (string $state) => \App\Enums\EstadoActividad::labels()[$state] ?? $state)
+                    ->formatStateUsing(fn(string $state) => \App\Enums\EstadoActividad::labels()[$state] ?? $state)
                     ->sortable(),
             ])
             ->defaultSort('fecha_programada', 'desc')
@@ -116,7 +130,10 @@ class ActividadesResource extends Resource
             ->bulkActions([Tables\Actions\BulkActionGroup::make([Tables\Actions\DeleteBulkAction::make()])]);
     }
 
-    public static function getRelations(): array { return []; }
+    public static function getRelations(): array
+    {
+        return [];
+    }
 
     public static function getPages(): array
     {

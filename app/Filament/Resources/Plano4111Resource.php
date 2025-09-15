@@ -8,11 +8,8 @@ use App\Models\Plano4111;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use HayderHatem\FilamentExcelImport\Actions\FullImportAction;
+use Filament\Tables\Actions\ImportAction;
 use HayderHatem\FilamentExcelImport\Actions\Concerns\CanImportExcelRecords;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Toggle;
-
-
 
 class Plano4111Resource extends Resource
 {
@@ -35,21 +32,29 @@ class Plano4111Resource extends Resource
                 Tables\Columns\TextColumn::make('obligacion'),
                 Tables\Columns\TextColumn::make('telefono'),
                 Tables\Columns\TextColumn::make('saldo_capital'),
+            ])
+            ->headerActions([
+                ImportAction::make()
+                    ->label('Importar Excel')
+                    ->importer(Plano4111Importer::class)
+                    ->chunkSize(500)
+                    ->maxRows(10000)
+                //->useStreaming() // ✅ este sí está soportado desde v3.1 del paquete
+                //>activeSheet(0)
+                ,
             ]);
     }
-
     public static function getHeaderActions(): array
     {
         return [
-        FullImportAction::make()
-            ->importer(Plano4111Importer::class)
-            ->label('Importar Plano 4111')
-            ->icon('heroicon-o-document-upload')
-            ->color('success')
-            ->modalHeading('Importar Plano 4111')
+            FullImportAction::make()
+                ->importer(Plano4111Importer::class)
+                ->label('Importar Plano 4111')
+                ->icon('heroicon-o-document-upload')
+                ->color('success')
+                ->modalHeading('Importar Plano 4111')
         ];
     }
-
     public static function getPages(): array
     {
         return [
