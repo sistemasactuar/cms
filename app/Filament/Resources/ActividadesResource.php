@@ -47,19 +47,18 @@ class ActividadesResource extends Resource
                     ->options([
                         'programada'     => 'Visita programada',
                         'no_programada'  => 'No programada',
+                        'notas'      => 'Notas',
+                        'cartas'     => 'Cartas',
+                        'pre_avisos' => 'Pre avisos',
                         'otro'           => 'Otro',
                     ])
                     ->required()
                     ->reactive(),
 
-                Forms\Components\Select::make('tipo_aviso')
-                    ->label('Tipo (si es "Otro")')
-                    ->options([
-                        'notas'      => 'Notas',
-                        'cartas'     => 'Cartas',
-                        'pre_avisos' => 'Pre avisos',
-                    ])
-                    ->visible(fn (Get $get) => $get('programacion') == 'otro'),
+                Forms\Components\Textarea::make('detalle_programacion')
+                    ->label('Detalle (si eliges "Otro")')
+                    ->rows(3)
+                    ->visible(fn (Get $get) => $get('programacion') === 'otro'),
 
                 // Asigna al usuario logueado
                 Forms\Components\Hidden::make('user_id')
