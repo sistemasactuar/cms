@@ -58,7 +58,7 @@ class ActividadesResource extends Resource
                 Forms\Components\Textarea::make('detalle_programacion')
                     ->label('Detalle (si eliges "Otro")')
                     ->rows(3)
-                    ->visible(fn (Get $get) => $get('programacion') === 'otro'),
+                    ->visible(fn (Get $get) => $get('descripcion') === 'otro'),
 
                 // Asigna al usuario logueado
                 Forms\Components\Hidden::make('user_id')
