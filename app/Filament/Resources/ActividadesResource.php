@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class ActividadesResource extends Resource
 {
@@ -109,4 +110,32 @@ class ActividadesResource extends Resource
             'edit'   => Pages\EditActividades::route('/{record}/edit'),
         ];
     }
+    public static function getEloquentQuery(): Builder
+{
+    /** @var \App\Models\User $u */
+    $u = auth()->user();
+
+    $query = parent::getEloquentQuery();
+
+    // SUPERADMIN ve todo
+    if ($u->hasRole('superadministrador')) {
+        return $query;
+    }
+
+    // DIRECTORES: ven TODO lo de su SEDE
+    // (director de cartera, director quindio, director valle, director risaralda)
+    if ($u->hasAnyRole([
+        'director de cartera',
+        'director quindio',
+        'director valle',
+        'director risaralda',
+    ])) {
+        return $query->whereHas('usuario', fn (Builder $q) =>
+            $q->where('sede_id', $u->sede_id)
+        );
+    }
+
+    // Resto de usuarios: solo lo propio
+    return $query->where('user_id', $u->id);
+}
 }

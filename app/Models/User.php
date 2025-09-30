@@ -28,6 +28,7 @@ class User extends Authenticatable
         'codigo', // Código del Funcionario (USUCADV_CODIGO)
         'perfil_id', // ID del Perfil
         'proceso_id', // ID del Proceso
+        'sede_id', // ID de la Sede
         'activo', // Activo/Inactivo
     ];
 

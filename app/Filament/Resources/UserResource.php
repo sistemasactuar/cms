@@ -72,6 +72,15 @@ class UserResource extends Resource
                         ->label('Código del Funcionario')
                         ->required()
                         ->numeric(),
+                    Select::make('sede_id')
+                        ->label('Sede')
+                        ->options([
+                            'risaralda' => 'Risaralda',
+                            'valle'     => 'Valle',
+                            'quindio'   => 'Quindío',
+                        ])
+                        ->required()
+                        ->native(false),
 
                     Forms\Components\TextInput::make('name')
                         ->label('Usuario')
@@ -148,9 +157,9 @@ class UserResource extends Resource
                     ->action(function (array $data, User $record): void {
                         // Actualiza el estado del usuario y registra el motivo
                         $record->update([
-                            'activo' => 0, 
+                            'activo' => 0,
                         ]);
-            
+
                         // Registra el motivo en la tabla `motivo_inactivacions`
                         DB::table('motivo_inactivacions')->insert([
                             'idusuario' => $record->id,
