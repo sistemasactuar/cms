@@ -20,8 +20,8 @@ class ActividadesResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
     protected static ?string $navigationGroup = 'Gestión';
-    protected static ?string $modelLabel = 'Actividad';
-    protected static ?string $pluralModelLabel = 'Actividades';
+    protected static ?string $modelLabel = 'Programador de Actividades';
+    protected static ?string $pluralModelLabel = 'Programador';
 
     public static function form(Form $form): Form
     {
@@ -37,16 +37,18 @@ class ActividadesResource extends Resource
                     ->label('Título')
                     ->required(),
 
-                Forms\Components\Select::make('estado')
+                    Forms\Components\Select::make('estado')
                     ->label('Estado')
                     ->options(EstadoActividad::labels())
-                    ->default(EstadoActividad::EnCurso->value),
+                    ->default(EstadoActividad::EnCurso->value)
+                    ->required()
+                    ->reactive(),
 
 
                 Forms\Components\Select::make('descripcion')
                     ->label('Programación')
                     ->options([
-                        'visita_credito'     => 'Visita Credito',
+                        'visita_credito'     => 'Visita Crédito',
                         'visita_cobro'  => 'Visita Cobro',
                         'recoger_documentos'      => 'Recoger Documentos',
                         'postcredito'     => 'Postcredito',
@@ -60,6 +62,16 @@ class ActividadesResource extends Resource
                     ->rows(3)
                     ->visible(fn (Get $get) => $get('descripcion') === 'otro'),
 
+                Forms\Components\Textarea::make('resultado_visita')
+                    ->label('Resultado de la visita')
+                    ->rows(4)
+                    ->columnSpanFull() // ocupa todo el ancho
+                    ->visible(fn (Get $get) =>
+                        in_array($get('estado'), [
+                            EstadoActividad::Ejecutada->value,
+                            EstadoActividad::Finalizada->value,
+                        ])
+                    ),
                 // Asigna al usuario logueado
                 Forms\Components\Hidden::make('user_id')
                     ->default(fn () => Auth::id())

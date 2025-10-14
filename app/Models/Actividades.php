@@ -10,7 +10,7 @@ class Actividades extends Model
 
     protected $fillable = [
         'titulo', 'descripcion', 'fecha_programada', 'estado',
-        'latitud', 'longitud', 'user_id', 'detalle_programacion',
+        'latitud', 'longitud', 'user_id', 'detalle_programacion', 'resultado_visita',
     ];
 
 }
