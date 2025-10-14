@@ -46,11 +46,10 @@ class ActividadesResource extends Resource
                 Forms\Components\Select::make('descripcion')
                     ->label('Programación')
                     ->options([
-                        'programada'     => 'Visita programada',
-                        'no_programada'  => 'No programada',
-                        'notas'      => 'Notas',
-                        'cartas'     => 'Cartas',
-                        'pre_avisos' => 'Pre avisos',
+                        'visita_credito'     => 'Visita Credito',
+                        'visita_cobro'  => 'Visita Cobro',
+                        'recoger_documentos'      => 'Recoger Documentos',
+                        'postcredito'     => 'Postcredito',
                         'otro'           => 'Otro',
                     ])
                     ->required()
