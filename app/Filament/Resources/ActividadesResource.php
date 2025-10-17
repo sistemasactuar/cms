@@ -76,7 +76,15 @@ class ActividadesResource extends Resource
                 Forms\Components\Hidden::make('user_id')
                     ->default(fn () => Auth::id())
                     ->dehydrated(),
+
+                Forms\Components\TextInput::make('direccion')
+                    ->label('Dirección'),
+
+                Forms\Components\TextInput::make('telefono')
+                    ->label('Teléfono'),
+
             ]),
+
         ]);
     }
 
