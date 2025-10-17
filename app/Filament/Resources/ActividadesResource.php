@@ -2,17 +2,18 @@
 
 namespace App\Filament\Resources;
 
-use App\Enums\EstadoActividad;
-use App\Filament\Resources\ActividadesResource\Pages;
-use App\Models\Actividades;
 use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
 use Filament\Tables;
+use Filament\Forms\Get;
+use Filament\Forms\Form;
 use Filament\Tables\Table;
+use App\Models\Actividades;
+use Illuminate\Http\Response;
+use App\Enums\EstadoActividad;
 use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Resources\ActividadesResource\Pages;
 
 class ActividadesResource extends Resource
 {
@@ -116,7 +117,45 @@ class ActividadesResource extends Resource
                 Tables\Columns\TextColumn::make('telefono')->label('Teléfono')->searchable(),
             ])
             ->defaultSort('fecha_programada', 'desc')
-            ->actions([Tables\Actions\EditAction::make()])
+                        ->actions([
+                            Tables\Actions\EditAction::make(),
+                            Tables\Actions\Action::make('descargar_calendario')
+                                ->label('Agregar compromiso (.ics)')
+                                ->icon('heroicon-o-calendar-days')
+                                ->color('success')
+                                ->action(function ($record) {
+                                    // Construye el contenido del evento en formato iCalendar (.ics)
+                                    $titulo       = addslashes($record->titulo);
+                                    $descripcion  = addslashes($record->detalle_programacion ?? $record->descripcion ?? '');
+                                    $fechaInicio  = $record->fecha_programada->format('Ymd\THis');
+                                    $fechaFin     = $record->fecha_programada->addHour()->format('Ymd\THis'); // +1 hora por defecto
+                                    $uid          = uniqid();
+                                    $contenido = <<<ICS
+                                    BEGIN:VCALENDAR
+                                    VERSION:2.0
+                                    PRODID:-//AppActuarFamiempresas//Actividades//ES
+                                    BEGIN:VEVENT
+                                    UID:$uid
+                                    DTSTAMP:$fechaInicio
+                                    DTSTART:$fechaInicio
+                                    DTEND:$fechaFin
+                                    SUMMARY:$titulo
+                                    DESCRIPTION:$descripcion
+                                    END:VEVENT
+                                    END:VCALENDAR
+                                    ICS;
+
+                                    // Devuelve descarga directa
+                                    return response()->streamDownload(
+                                        fn () => print($contenido),
+                                        "actividad_{$record->id}.ics",
+                                        [
+                                            'Content-Type' => 'text/calendar; charset=utf-8',
+                                            'Content-Disposition' => 'attachment; filename="actividad_'.$record->id.'.ics"',
+                                        ]
+                                    );
+                                }),
+                        ])
             ->bulkActions([Tables\Actions\BulkActionGroup::make([Tables\Actions\DeleteBulkAction::make()])]);
     }
 

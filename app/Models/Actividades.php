@@ -12,5 +12,8 @@ class Actividades extends Model
         'titulo', 'descripcion', 'fecha_programada', 'estado',
         'latitud', 'longitud', 'user_id', 'detalle_programacion', 'resultado_visita','direccion','telefono'
     ];
+    protected $casts = [
+        'fecha_programada' => 'datetime',
+    ];
 
 }
