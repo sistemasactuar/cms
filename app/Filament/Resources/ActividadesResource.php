@@ -110,8 +110,10 @@ class ActividadesResource extends Resource
                     ])
                     ->formatStateUsing(fn (string $state) => \App\Enums\EstadoActividad::labels()[$state] ?? $state)
                     ->sortable(),
-                Tables\Columns\TextColumn::make('descripcion')->label('Programación'),
+                Tables\Columns\TextColumn::make('descripcion')->label('Programación')->searchable(),
                 Tables\Columns\TextColumn::make('resultado_visita')->label('Resultado de la visita')->limit(50)->wrap(),
+                Tables\Columns\TextColumn::make('direccion')->label('Dirección')->searchable(),
+                Tables\Columns\TextColumn::make('telefono')->label('Teléfono')->searchable(),
             ])
             ->defaultSort('fecha_programada', 'desc')
             ->actions([Tables\Actions\EditAction::make()])
