@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Auth;
 
 class RoleResource extends Resource
 {
