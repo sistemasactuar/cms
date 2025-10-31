@@ -36,6 +36,10 @@ class RoleResource extends Resource
         return 'Roles'; // Plural
     }
 
+    public static function authorizeResource(): ?string
+    {
+        return \App\Policies\RolePolicy::class;
+    }
     public static function form(Form $form): Form
     {
         return $form
