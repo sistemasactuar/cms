@@ -35,6 +35,18 @@ class RoleResource extends Resource
     {
         return 'Roles'; // Plural
     }
+    public static function shouldRegisterNavigation(): bool
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        // Solo se muestra si el usuario tiene permiso o rol adecuado
+        return $user &&
+            (
+                $user->hasRole(['admin', 'Superadmin']) ||
+                $user->can('Roles')
+            );
+    }
 
     public static function authorizeResource(): ?string
     {
