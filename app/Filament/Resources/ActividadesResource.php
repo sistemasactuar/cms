@@ -35,7 +35,7 @@ class ActividadesResource extends Resource
                     ->required(),
 
                 Forms\Components\TextInput::make('titulo')
-                    ->label('Título')
+                    ->label('Nombre del Cliente')
                     ->required(),
 
                     Forms\Components\Select::make('estado')
@@ -93,10 +93,10 @@ class ActividadesResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('titulo')->label('Título')->searchable(),
+                Tables\Columns\TextColumn::make('titulo')->label('Cliente')->searchable(),
                 Tables\Columns\TextColumn::make('usuario.name')->label('Usuario'),
                 // Ajusta según si usas DatePicker (date) o DateTimePicker (dateTime)
-                Tables\Columns\TextColumn::make('fecha_programada')->label('Fecha')->date(),
+                Tables\Columns\TextColumn::make('fecha_programada')->label('Fecha')->dateTime(),
 
                 Tables\Columns\BadgeColumn::make('estado')
                     ->label('Estado')
