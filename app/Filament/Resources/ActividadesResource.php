@@ -93,10 +93,10 @@ class ActividadesResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('titulo')->label('Cliente')->searchable(),
+                Tables\Columns\TextColumn::make('titulo')->label('Nombre del Cliente')->searchable(),
                 Tables\Columns\TextColumn::make('usuario.name')->label('Usuario'),
                 // Ajusta según si usas DatePicker (date) o DateTimePicker (dateTime)
-                Tables\Columns\TextColumn::make('fecha_programada')->label('Fecha')->dateTime(),
+                Tables\Columns\TextColumn::make('fecha_programada')->label('Fecha y hora')->dateTime(),
 
                 Tables\Columns\BadgeColumn::make('estado')
                     ->label('Estado')
