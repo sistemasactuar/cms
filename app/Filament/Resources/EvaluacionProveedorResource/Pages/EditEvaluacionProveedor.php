@@ -1,0 +1,19 @@
+<?php
+
+namespace App\Filament\Resources\EvaluacionProveedorResource\Pages;
+
+use App\Filament\Resources\EvaluacionProveedorResource;
+use Filament\Actions;
+use Filament\Resources\Pages\EditRecord;
+
+class EditEvaluacionProveedor extends EditRecord
+{
+    protected static string $resource = EvaluacionProveedorResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\DeleteAction::make(),
+        ];
+    }
+}
