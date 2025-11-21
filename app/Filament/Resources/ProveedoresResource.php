@@ -2,46 +2,48 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ProveedoresResource\Pages;
-use App\Models\Proveedores;
 use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Forms\Form;
 use Filament\Tables\Table;
+use App\Models\Proveedores;
+use Filament\Resources\Resource;
+use Filament\Forms\Components\Card;
 use Filament\Forms\Components\TextInput;
+use App\Filament\Resources\ProveedoresResource\Pages;
 
 class ProveedoresResource extends Resource
 {
     protected static ?string $model = Proveedores::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-check-circle';
+    protected static ?string $navigationGroup = 'Gestión de Proveedores';
+    protected static ?string $modelLabel = 'Gestión de Proveedor';
+    protected static ?string $pluralModelLabel = 'Gestiones de Proveedores';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                TextInput::make('nombre')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('contacto')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('servicio')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('responsable')
-                    ->required()
-                    ->maxLength(255),
-                TextInput::make('telefono_resp')
-                    ->label('Teléfono Responsable')
-                    ->required()
-                    ->tel()
-                    ->regex('/^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\.\/0-9]*$/'),
-                TextInput::make('correo_resp')
-                    ->label('Correo Responsable')
-                    ->required()
-                    ->email()
-                    ->maxLength(255),
+                Card::make()
+                    ->schema([
+                    TextInput::make('contacto')
+                        ->required()
+                        ->maxLength(255),
+                    TextInput::make('nombre')
+                          ->label('Nombre del proveedor')
+                          ->required()
+                          ->maxLength(255),
+
+                    TextInput::make('servicio')
+                        ->required()
+                        ->maxLength(255),
+                    Forms\Components\Select::make('responsable_id')
+                        ->label('Responsable de Evaluación')
+                        ->relationship('responsable', 'nombre')
+                        ->searchable()
+                        ->required(),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -52,9 +54,10 @@ class ProveedoresResource extends Resource
                 Tables\Columns\TextColumn::make('nombre')->searchable(),
                 Tables\Columns\TextColumn::make('contacto')->searchable(),
                 Tables\Columns\TextColumn::make('servicio')->searchable(),
-                Tables\Columns\TextColumn::make('responsable')->searchable(),
-                Tables\Columns\TextColumn::make('telefono_resp')->searchable(),
-                Tables\Columns\TextColumn::make('correo_resp')->searchable(),
+                Tables\Columns\TextColumn::make('responsable.nombre')
+                ->label('Responsable')
+                ->sortable()
+                ->searchable(),
             ])
             ->filters([])
             ->actions([
