@@ -1,14 +1,15 @@
 <?php
 
 use App\Models\Responsable;
+use Illuminate\Http\Request; //
 use App\Models\EvaluacionProveedor;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request; //
+use App\Http\Controllers\WelcomeController;
 
 Route::get('/', function () {
     return view('welcome');
 });
-
+Route::get('/', [WelcomeController::class, 'index'])->name('welcome');
 // PASARELA
 // ...
 
