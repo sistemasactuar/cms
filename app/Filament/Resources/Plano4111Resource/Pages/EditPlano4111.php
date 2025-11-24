@@ -16,4 +16,12 @@ class EditPlano4111 extends EditRecord
             Actions\DeleteAction::make(),
         ];
     }
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Plano 4111 editado';
+    }
 }

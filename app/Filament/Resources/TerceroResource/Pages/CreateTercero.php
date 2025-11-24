@@ -9,4 +9,12 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateTercero extends CreateRecord
 {
     protected static string $resource = TerceroResource::class;
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Tercero Creado';
+    }
 }

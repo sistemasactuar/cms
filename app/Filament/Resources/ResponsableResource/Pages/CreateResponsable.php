@@ -9,4 +9,12 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateResponsable extends CreateRecord
 {
     protected static string $resource = ResponsableResource::class;
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Responsable Creado';
+    }
 }
