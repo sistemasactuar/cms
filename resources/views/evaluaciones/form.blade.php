@@ -152,26 +152,67 @@
 
     <!-- SCRIPT FIRMA -->
     <script>
-        const canvas = document.getElementById('firmaCanvas');
-        const ctx = canvas.getContext('2d');
-        let dibujando = false;
+        const canvas = document.getElementById("firmaCanvas");
+        const ctx = canvas.getContext("2d");
 
-        function pos(e) {
-            const r = canvas.getBoundingClientRect();
-            return e.touches
-                ? { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }
-                : { x: e.offsetX, y: e.offsetY };
+        // --- Ajustar tamaño real del canvas al tamaño que se ve en pantalla ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         }
 
-        // Mouse
-        canvas.addEventListener("mousedown", e => { dibujando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
-        canvas.addEventListener("mousemove", e => { if (dibujando) { const p = pos(e); ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#000"; ctx.lineTo(p.x, p.y); ctx.stroke(); }});
-        canvas.addEventListener("mouseup", () => dibujando = false);
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
 
-        // Touch
-        canvas.addEventListener("touchstart", e => { e.preventDefault(); dibujando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
-        canvas.addEventListener("touchmove", e => { e.preventDefault(); if (dibujando) { const p = pos(e); ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.strokeStyle = "#000"; ctx.lineTo(p.x, p.y); ctx.stroke(); }});
-        canvas.addEventListener("touchend", () => dibujando = false);
+        let dibujando = false;
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+
+            if (e.touches) {
+                return {
+                    x: (e.touches[0].clientX - rect.left),
+                    y: (e.touches[0].clientY - rect.top)
+                };
+            }
+            return {
+                x: e.offsetX,
+                y: e.offsetY
+            };
+        }
+
+        function iniciar(e) {
+            dibujando = true;
+            const p = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+        }
+
+        function dibujar(e) {
+            if (!dibujando) return;
+            const p = getPos(e);
+            ctx.lineWidth = 2;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = "#000";
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+        }
+
+        function parar() {
+            dibujando = false;
+        }
+
+        // Desktop
+        canvas.addEventListener("mousedown", iniciar);
+        canvas.addEventListener("mousemove", dibujar);
+        canvas.addEventListener("mouseup", parar);
+
+        // Mobile
+        canvas.addEventListener("touchstart", e => { e.preventDefault(); iniciar(e); });
+        canvas.addEventListener("touchmove", e => { e.preventDefault(); dibujar(e); });
+        canvas.addEventListener("touchend", e => { e.preventDefault(); parar(); });
 
         // Limpiar
         document.getElementById("clearBtn").addEventListener("click", () => {
@@ -179,11 +220,12 @@
             document.getElementById("firmaInput").value = "";
         });
 
-        // Guardar firma
+        // Guardar
         document.querySelector("form").addEventListener("submit", () => {
             document.getElementById("firmaInput").value = canvas.toDataURL("image/png");
         });
     </script>
+
 
 </body>
 </html>
