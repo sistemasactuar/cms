@@ -29,38 +29,38 @@ class ResponsableResource extends Resource
         return $form
             ->schema([
                 Forms\Components\TextInput::make('nombre')
-                ->label('Nombre completo')
-                ->required()
-                ->maxLength(255),
+                    ->label('Nombre completo')
+                    ->required()
+                    ->maxLength(255),
 
-            Forms\Components\TextInput::make('telefono')
-                ->label('Teléfono')
-                ->tel()
-                ->maxLength(20),
+                Forms\Components\TextInput::make('telefono')
+                    ->label('Teléfono')
+                    ->tel()
+                    ->maxLength(20),
 
-            Forms\Components\TextInput::make('correo')
-                ->label('Correo')
-                ->email()
-                ->maxLength(255),
+                Forms\Components\TextInput::make('correo')
+                    ->label('Correo')
+                    ->email()
+                    ->maxLength(255),
 
-            Forms\Components\TextInput::make('clave_portal')
-                ->label('Clave de acceso al portal')
-                ->password()
-                ->required()
-                ->helperText('El responsable deberá ingresar esta clave para acceder a su portal de evaluaciones.'),
+                Forms\Components\TextInput::make('clave_portal')
+                    ->label('Clave de acceso al portal')
+                    ->password()
+                    ->required()
+                    ->helperText('El responsable deberá ingresar esta clave para acceder a su portal de evaluaciones.'),
 
-            Forms\Components\TextInput::make('token_publico')
-                ->label('Token público (solo lectura)')
-                ->default(fn () => (string) Str::uuid())
-                ->disabled()
-                ->dehydrated(true),
+                Forms\Components\TextInput::make('token_publico')
+                    ->label('Token público (solo lectura)')
+                    ->default(fn() => (string) Str::uuid())
+                    ->disabled()
+                    ->dehydrated(true),
 
-            Forms\Components\Placeholder::make('link_publico')
-                ->label('Link público del responsable')
-                ->content(function ($record) {
-                    if (!$record) return 'Se generará al crear el responsable.';
-                    return url('/evaluador/' . $record->token_publico);
-                }),
+                Forms\Components\Placeholder::make('link_publico')
+                    ->label('Link público del responsable')
+                    ->content(function ($record) {
+                        if (!$record) return 'Se generará al crear el responsable.';
+                        return url('/evaluador/' . $record->token_publico);
+                    }),
             ]);
     }
 
@@ -78,14 +78,21 @@ class ResponsableResource extends Resource
 
                 Tables\Columns\TextColumn::make('token_publico')
                     ->label('Link público')
-                    ->formatStateUsing(fn ($state) => url('/evaluador/' . $state))
-                    ->copyable(),
+                    ->formatStateUsing(fn($state) => url('/evaluador/' . $state))
+                    ->copyable()
+                    ->copyableState(fn($state) => url('/evaluador/' . $state)),
             ])
             ->filters([
                 //
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('whatsapp')
+                    ->label('Enviar')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('success')
+                    ->url(fn(Responsable $record) => 'https://wa.me/' . $record->telefono . '?text=' . urlencode("Hola {$record->nombre}, aquí tienes tu enlace de acceso: " . url('/evaluador/' . $record->token_publico)))
+                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
