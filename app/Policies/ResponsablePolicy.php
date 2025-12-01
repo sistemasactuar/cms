@@ -12,7 +12,10 @@ class ResponsablePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('ver responsable');
     }
 
     /**
@@ -20,7 +23,10 @@ class ResponsablePolicy
      */
     public function view(User $user, Responsable $responsable): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('ver responsable');
     }
 
     /**
@@ -28,7 +34,10 @@ class ResponsablePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('crear responsable');
     }
 
     /**
@@ -36,7 +45,10 @@ class ResponsablePolicy
      */
     public function update(User $user, Responsable $responsable): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('editar responsable');
     }
 
     /**
@@ -44,7 +56,10 @@ class ResponsablePolicy
      */
     public function delete(User $user, Responsable $responsable): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar responsable');
     }
 
     /**
@@ -52,7 +67,10 @@ class ResponsablePolicy
      */
     public function restore(User $user, Responsable $responsable): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar responsable');
     }
 
     /**
@@ -60,6 +78,9 @@ class ResponsablePolicy
      */
     public function forceDelete(User $user, Responsable $responsable): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar responsable');
     }
 }

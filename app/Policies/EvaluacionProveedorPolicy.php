@@ -12,7 +12,11 @@ class EvaluacionProveedorPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']) || !empty($user->responsable_id);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        // Allow if user has permission OR is a responsable (so they can see their own)
+        return $user->can('ver evaluacion_proveedor') || !empty($user->responsable_id);
     }
 
     /**
@@ -20,7 +24,11 @@ class EvaluacionProveedorPolicy
      */
     public function view(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole(['superadministrador', 'admin'])) {
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+
+        if ($user->can('ver evaluacion_proveedor')) {
             return true;
         }
 
@@ -32,7 +40,11 @@ class EvaluacionProveedorPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        // Allow if user has permission OR is a responsable (they need to create evaluations)
+        return $user->can('crear evaluacion_proveedor') || !empty($user->responsable_id);
     }
 
     /**
@@ -40,7 +52,11 @@ class EvaluacionProveedorPolicy
      */
     public function update(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole(['superadministrador', 'admin'])) {
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+
+        if ($user->can('editar evaluacion_proveedor')) {
             return true;
         }
 
@@ -54,7 +70,10 @@ class EvaluacionProveedorPolicy
      */
     public function delete(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar evaluacion_proveedor');
     }
 
     /**
@@ -62,7 +81,10 @@ class EvaluacionProveedorPolicy
      */
     public function restore(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar evaluacion_proveedor');
     }
 
     /**
@@ -70,6 +92,9 @@ class EvaluacionProveedorPolicy
      */
     public function forceDelete(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        return $user->hasRole(['superadministrador', 'admin']);
+        if ($user->hasRole('superadministrador')) {
+            return true;
+        }
+        return $user->can('eliminar evaluacion_proveedor');
     }
 }
