@@ -132,7 +132,7 @@ class EvaluacionProveedorResource extends Resource
         $user = auth()->user();
 
         // Admin o superadmin ve todo
-        if ($user->hasRole('Superadmin') || $user->hasRole('admin') || $user->hasRole('Asistente Administrativa')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('admin') || $user->hasRole('Asistente Administrativo')) {
             return parent::getEloquentQuery();
         }
 
