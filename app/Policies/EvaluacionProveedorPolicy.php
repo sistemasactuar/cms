@@ -12,7 +12,7 @@ class EvaluacionProveedorPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('Superadmin') || $user->hasRole('Asistente Administrativa')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('Asistente Administrativo')) {
             return true;
         }
         // Allow if user has permission OR is a responsable (so they can see their own)

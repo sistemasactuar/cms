@@ -16,7 +16,13 @@ class ListEvaluacionProveedors extends ListRecords
             Actions\Action::make('exportar')
                 ->label('Exportar Consolidado')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->action(fn() => \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EvaluacionesExport, 'evaluaciones_consolidado.xlsx')),
+                ->action(function ($livewire) {
+                    $records = $livewire->getFilteredTableQuery()
+                        ->where('bloqueado', true)
+                        ->get();
+
+                    return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EvaluacionesExport($records), 'evaluaciones_consolidado.xlsx');
+                }),
             Actions\CreateAction::make(),
         ];
     }

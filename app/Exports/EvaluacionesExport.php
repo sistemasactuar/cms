@@ -11,23 +11,25 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class EvaluacionesExport implements FromCollection, WithHeadings, WithMapping, WithStyles
 {
+    protected $evaluaciones;
+
+    public function __construct($evaluaciones)
+    {
+        $this->evaluaciones = $evaluaciones;
+    }
+
     public function collection()
     {
-        // Solo evaluaciones finalizadas (bloqueado = true)
-        $evaluaciones = EvaluacionProveedor::with(['proveedor', 'responsable'])
-            ->where('bloqueado', true)
-            ->get();
-
         // Calcular promedio
-        $promedio = $evaluaciones->avg('calificacion');
+        $promedio = $this->evaluaciones->avg('calificacion');
 
         // Agregar fila de promedio al final
-        $evaluaciones->push((object)[
+        $this->evaluaciones->push((object)[
             'is_summary' => true,
             'promedio' => $promedio
         ]);
 
-        return $evaluaciones;
+        return $this->evaluaciones;
     }
 
     public function headings(): array
