@@ -12,7 +12,7 @@ class EvaluacionProveedorPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasRole(['superadministrador', 'admin']) || !empty($user->responsable_id);
     }
 
     /**
@@ -45,7 +45,7 @@ class EvaluacionProveedorPolicy
         }
 
         // Users can only update their own evaluations if they are not blocked (signed)
-        return ($user->id === $evaluacionProveedor->user_id || $user->id === $evaluacionProveedor->responsable_id) 
+        return ($user->id === $evaluacionProveedor->user_id || $user->id === $evaluacionProveedor->responsable_id)
             && ! $evaluacionProveedor->bloqueado;
     }
 
