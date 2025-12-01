@@ -12,27 +12,11 @@ class EvaluacionProveedorPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('Superadmin')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('Asistente Administrativa')) {
             return true;
         }
         // Allow if user has permission OR is a responsable (so they can see their own)
         return $user->can('ver evaluacion_proveedor') || !empty($user->responsable_id);
-    }
-
-    /**
-     * Determine whether the user can view the model.
-     */
-    public function view(User $user, EvaluacionProveedor $evaluacionProveedor): bool
-    {
-        if ($user->hasRole('Superadmin')) {
-            return true;
-        }
-
-        if ($user->can('ver evaluacion_proveedor')) {
-            return true;
-        }
-
-        return $user->id === $evaluacionProveedor->user_id || $user->id === $evaluacionProveedor->responsable_id;
     }
 
     /**

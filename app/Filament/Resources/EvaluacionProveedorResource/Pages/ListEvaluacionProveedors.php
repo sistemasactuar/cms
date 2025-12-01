@@ -13,6 +13,10 @@ class ListEvaluacionProveedors extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('exportar')
+                ->label('Exportar Consolidado')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->action(fn() => \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\EvaluacionesExport, 'evaluaciones_consolidado.xlsx')),
             Actions\CreateAction::make(),
         ];
     }
