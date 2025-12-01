@@ -91,7 +91,7 @@ class ResponsableResource extends Resource
                     ->label('Enviar')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('success')
-                    ->url(fn(Responsable $record) => 'https://wa.me/' . $record->telefono . '?text=' . urlencode("Hola {$record->nombre}, aquí tienes tu enlace de acceso de evaluacion de proveedores: " . url('/evaluador/' . $record->token_publico)))
+                    ->url(fn(Responsable $record) => 'https://wa.me/' . $record->telefono . '?text=' . urlencode("Hola {$record->nombre}, aquí tienes tu enlace de acceso para la evaluación de proveedores: " . url('/evaluador/' . $record->token_publico)))
                     ->openUrlInNewTab(),
             ])
             ->bulkActions([
