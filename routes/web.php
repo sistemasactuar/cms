@@ -51,6 +51,9 @@ Route::get('/evaluador/{token}/lista', function (Request $req, $token) {
     // Si no pide histórico, filtramos por el año actual
     if (!$req->has('historico')) {
         $query->whereYear('fecha', date('Y'));
+    } else {
+        // Si pide histórico, mostramos "los demás" (años anteriores)
+        $query->whereYear('fecha', '!=', date('Y'));
     }
 
     $evaluaciones = $query->get();
