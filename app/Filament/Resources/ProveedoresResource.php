@@ -17,8 +17,8 @@ class ProveedoresResource extends Resource
     protected static ?string $model = Proveedores::class;
     protected static ?string $navigationIcon = 'heroicon-o-check-circle';
     protected static ?string $navigationGroup = 'Gestión de Proveedores';
-    protected static ?string $modelLabel = 'Gestión de Proveedor';
-    protected static ?string $pluralModelLabel = 'Gestiones de Proveedores';
+    protected static ?string $modelLabel = 'Proveedor';
+    protected static ?string $pluralModelLabel = 'Proveedores';
 
     public static function form(Form $form): Form
     {
@@ -26,22 +26,22 @@ class ProveedoresResource extends Resource
             ->schema([
                 Card::make()
                     ->schema([
-                    TextInput::make('contacto')
-                        ->required()
-                        ->maxLength(255),
-                    TextInput::make('nombre')
-                          ->label('Nombre del proveedor')
-                          ->required()
-                          ->maxLength(255),
+                        TextInput::make('contacto')
+                            ->required()
+                            ->maxLength(255),
+                        TextInput::make('nombre')
+                            ->label('Nombre del proveedor')
+                            ->required()
+                            ->maxLength(255),
 
-                    TextInput::make('servicio')
-                        ->required()
-                        ->maxLength(255),
-                    Forms\Components\Select::make('responsable_id')
-                        ->label('Responsable de Evaluación')
-                        ->relationship('responsable', 'nombre')
-                        ->searchable()
-                        ->required(),
+                        TextInput::make('servicio')
+                            ->required()
+                            ->maxLength(255),
+                        Forms\Components\Select::make('responsable_id')
+                            ->label('Responsable de Evaluación')
+                            ->relationship('responsable', 'nombre')
+                            ->searchable()
+                            ->required(),
                     ])
                     ->columns(2),
             ]);
@@ -55,9 +55,9 @@ class ProveedoresResource extends Resource
                 Tables\Columns\TextColumn::make('contacto')->searchable(),
                 Tables\Columns\TextColumn::make('servicio')->searchable(),
                 Tables\Columns\TextColumn::make('responsable.nombre')
-                ->label('Responsable')
-                ->sortable()
-                ->searchable(),
+                    ->label('Responsable')
+                    ->sortable()
+                    ->searchable(),
             ])
             ->filters([])
             ->actions([
