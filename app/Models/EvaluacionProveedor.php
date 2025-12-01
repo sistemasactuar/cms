@@ -13,14 +13,29 @@ class EvaluacionProveedor extends Model
     protected $table = 'evaluacion_proveedors';
 
     protected $fillable = [
+        'user_id',
         'proveedor_id',
         'responsable_id',
         'fecha',
         // 11 preguntas
-        'pregunta_1', 'pregunta_2', 'pregunta_3', 'pregunta_4', 'pregunta_5',
-        'pregunta_6', 'pregunta_7', 'pregunta_8', 'pregunta_9', 'pregunta_10', 'pregunta_11',
-        'puntos_obtenidos', 'puntos_posibles', 'calificacion', 'clasificacion',
-        'observaciones', 'firma', 'bloqueado',
+        'pregunta_1',
+        'pregunta_2',
+        'pregunta_3',
+        'pregunta_4',
+        'pregunta_5',
+        'pregunta_6',
+        'pregunta_7',
+        'pregunta_8',
+        'pregunta_9',
+        'pregunta_10',
+        'pregunta_11',
+        'puntos_obtenidos',
+        'puntos_posibles',
+        'calificacion',
+        'clasificacion',
+        'observaciones',
+        'firma',
+        'bloqueado',
     ];
 
     protected $casts = [
@@ -45,8 +60,8 @@ class EvaluacionProveedor extends Model
         static::saving(function ($model) {
             // Calcular puntuación solo si no está bloqueado
             $respuestas = collect(range(1, 11))
-                ->map(fn ($i) => $model->{"pregunta_$i"})
-                ->filter(fn ($v) => $v !== null && $v !== 'na');
+                ->map(fn($i) => $model->{"pregunta_$i"})
+                ->filter(fn($v) => $v !== null && $v !== 'na');
 
             $model->puntos_obtenidos = $respuestas->sum();
             $model->puntos_posibles = $respuestas->count() * 2;

@@ -42,16 +42,17 @@ class EvaluacionProveedorResource extends Resource
             Forms\Components\Select::make('proveedor_id')
                 ->label('Proveedor')
                 ->options(Proveedores::pluck('nombre', 'id'))
-                ->disabled(fn ($record) => $record?->bloqueado)
+                ->disabled(fn($record) => $record?->bloqueado)
                 ->required(),
 
             Forms\Components\DatePicker::make('fecha')
                 ->label('Fecha de evaluación')
                 ->default(now())
-                ->disabled(fn ($record) => $record?->bloqueado),
+                ->disabled(fn($record) => $record?->bloqueado),
 
             Forms\Components\Section::make('Ítems a evaluar')
-                ->schema(array_map(fn ($i, $texto) =>
+                ->schema(array_map(
+                    fn($i, $texto) =>
                     Forms\Components\Select::make("pregunta_$i")
                         ->label("$i. $texto")
                         ->options([
@@ -61,22 +62,24 @@ class EvaluacionProveedorResource extends Resource
                             2 => 'Cumple',
                         ])
                         ->native(false)
-                        ->disabled(fn ($record) => $record?->bloqueado)
+                        ->disabled(fn($record) => $record?->bloqueado)
                         ->reactive(),
-                array_keys($preguntas), $preguntas)),
+                    array_keys($preguntas),
+                    $preguntas
+                )),
 
             Forms\Components\Textarea::make('observaciones')
                 ->label('Observaciones')
                 ->rows(3)
-                ->disabled(fn ($record) => $record?->bloqueado),
+                ->disabled(fn($record) => $record?->bloqueado),
 
             Forms\Components\ViewField::make('firma')
                 ->label('Firma digital')
                 ->view('filament.forms.components.signature-field')
-                ->visible(fn ($record) => ! $record?->bloqueado),
+                ->visible(fn($record) => ! $record?->bloqueado),
 
-                Forms\Components\Hidden::make('responsable_id')
-                ->default(fn () => auth()->user()?->responsable_id)
+            Forms\Components\Hidden::make('responsable_id')
+                ->default(fn() => auth()->user()?->responsable_id)
                 ->dehydrated(),
         ]);
     }
@@ -114,10 +117,9 @@ class EvaluacionProveedorResource extends Resource
                 Tables\Actions\Action::make('ver')
                     ->label('Ver')
                     ->icon('heroicon-o-eye')
-                    ->url(fn ($record) => EvaluacionProveedorResource::getUrl('view', ['record' => $record]))
+                    ->url(fn($record) => EvaluacionProveedorResource::getUrl('view', ['record' => $record]))
                     ->color('gray'),
-                Tables\Actions\EditAction::make()
-                    ->hidden(fn ($record) => $record->bloqueado), // No se edita si ya firmó
+                Tables\Actions\EditAction::make(),
             ]);
     }
 
