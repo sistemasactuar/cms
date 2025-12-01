@@ -12,7 +12,7 @@ class EvaluacionProveedorPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         // Allow if user has permission OR is a responsable (so they can see their own)
@@ -24,7 +24,7 @@ class EvaluacionProveedorPolicy
      */
     public function view(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
 
@@ -40,7 +40,7 @@ class EvaluacionProveedorPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         // Allow if user has permission OR is a responsable (they need to create evaluations)
@@ -52,7 +52,7 @@ class EvaluacionProveedorPolicy
      */
     public function update(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
 
@@ -70,7 +70,7 @@ class EvaluacionProveedorPolicy
      */
     public function delete(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar evaluacion_proveedor');
@@ -81,7 +81,7 @@ class EvaluacionProveedorPolicy
      */
     public function restore(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar evaluacion_proveedor');
@@ -92,7 +92,7 @@ class EvaluacionProveedorPolicy
      */
     public function forceDelete(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar evaluacion_proveedor');

@@ -12,7 +12,7 @@ class ResponsablePolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('ver responsable');
@@ -23,7 +23,7 @@ class ResponsablePolicy
      */
     public function view(User $user, Responsable $responsable): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('ver responsable');
@@ -34,7 +34,7 @@ class ResponsablePolicy
      */
     public function create(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('crear responsable');
@@ -45,7 +45,7 @@ class ResponsablePolicy
      */
     public function update(User $user, Responsable $responsable): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('editar responsable');
@@ -56,7 +56,7 @@ class ResponsablePolicy
      */
     public function delete(User $user, Responsable $responsable): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar responsable');
@@ -67,7 +67,7 @@ class ResponsablePolicy
      */
     public function restore(User $user, Responsable $responsable): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar responsable');
@@ -78,7 +78,7 @@ class ResponsablePolicy
      */
     public function forceDelete(User $user, Responsable $responsable): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar responsable');

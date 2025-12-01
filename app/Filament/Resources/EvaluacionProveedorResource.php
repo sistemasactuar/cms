@@ -107,6 +107,10 @@ class EvaluacionProveedorResource extends Resource
                     ->boolean(),
             ])
             ->filters([
+                Tables\Filters\Filter::make('anio_actual')
+                    ->label('Año actual')
+                    ->query(fn(\Illuminate\Database\Eloquent\Builder $query) => $query->whereYear('fecha', date('Y')))
+                    ->default(),
                 Tables\Filters\TernaryFilter::make('bloqueado')
                     ->label('Estado de firma')
                     ->placeholder('Todos')
@@ -128,7 +132,7 @@ class EvaluacionProveedorResource extends Resource
         $user = auth()->user();
 
         // Admin o superadmin ve todo
-        if ($user->hasRole('superadministrador') || $user->hasRole('admin')) {
+        if ($user->hasRole('Superadmin') || $user->hasRole('admin')) {
             return parent::getEloquentQuery();
         }
 

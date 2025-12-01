@@ -40,14 +40,20 @@ Route::post('/evaluador/{token}', function (Request $req, $token) {
 });
 
 // Lista de evaluaciones asignadas
-Route::get('/evaluador/{token}/lista', function ($token) {
+Route::get('/evaluador/{token}/lista', function (Request $req, $token) {
     $responsable = Responsable::where('token_publico', $token)->firstOrFail();
 
     abort_if(session('responsable_id') !== $responsable->id, 403);
 
-    $evaluaciones = EvaluacionProveedor::where('responsable_id', $responsable->id)
-        ->with('proveedor')
-        ->get();
+    $query = EvaluacionProveedor::where('responsable_id', $responsable->id)
+        ->with('proveedor');
+
+    // Si no pide histórico, filtramos por el año actual
+    if (!$req->has('historico')) {
+        $query->whereYear('fecha', date('Y'));
+    }
+
+    $evaluaciones = $query->get();
 
     return view('evaluaciones.lista', compact('responsable', 'evaluaciones'));
 });
@@ -85,7 +91,7 @@ Route::post('/evaluador/{token}/evaluacion/{id}', function (Request $req, $token
     }
 
     // Guardar respuestas y firma
-    foreach (range(1,11) as $i) {
+    foreach (range(1, 11) as $i) {
         $ev->{"pregunta_$i"} = $req->input("pregunta_$i");
     }
 

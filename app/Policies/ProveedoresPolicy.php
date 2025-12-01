@@ -12,7 +12,7 @@ class ProveedoresPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('ver proveedor');
@@ -23,7 +23,7 @@ class ProveedoresPolicy
      */
     public function view(User $user, Proveedores $proveedores): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('ver proveedor');
@@ -34,7 +34,7 @@ class ProveedoresPolicy
      */
     public function create(User $user): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('crear proveedor');
@@ -45,7 +45,7 @@ class ProveedoresPolicy
      */
     public function update(User $user, Proveedores $proveedores): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('editar proveedor');
@@ -56,7 +56,7 @@ class ProveedoresPolicy
      */
     public function delete(User $user, Proveedores $proveedores): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar proveedor');
@@ -67,7 +67,7 @@ class ProveedoresPolicy
      */
     public function restore(User $user, Proveedores $proveedores): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar proveedor');
@@ -78,7 +78,7 @@ class ProveedoresPolicy
      */
     public function forceDelete(User $user, Proveedores $proveedores): bool
     {
-        if ($user->hasRole('superadministrador')) {
+        if ($user->hasRole('Superadmin')) {
             return true;
         }
         return $user->can('eliminar proveedor');
