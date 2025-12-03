@@ -56,7 +56,7 @@ class EvaluacionProveedorResource extends Resource
                     Forms\Components\Select::make("pregunta_$i")
                         ->label("$i. $texto")
                         ->options([
-                            'na' => 'N/A',
+                            0 => 'N/A',
                             0 => 'No cumple',
                             1 => 'Cumple parcialmente',
                             2 => 'Cumple',

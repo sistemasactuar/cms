@@ -29,12 +29,16 @@
                 font-size: 18px !important;
                 padding: 14px !important;
             }
-            select, textarea {
+
+            select,
+            textarea {
                 font-size: 18px !important;
             }
+
             label {
                 font-size: 17px !important;
             }
+
             #firmaCanvas {
                 height: 260px !important;
             }
@@ -68,39 +72,39 @@
             @csrf
 
             @php
-                $preguntas = [
-                    1 => '¿Tiene precios competitivos para su servicio?',
-                    2 => '¿Sus tiempos de respuesta se adecuan a nuestras necesidades?',
-                    3 => '¿Suministra información técnica apropiada?',
-                    4 => '¿Brinda la asesoría requerida?',
-                    5 => '¿Conoce bien su servicio?',
-                    6 => '¿Asiste a reuniones solicitadas específicamente?',
-                    7 => '¿Plantea innovaciones y mejoras en su servicio?',
-                    8 => '¿Es oportuno en la solución de quejas o reclamos?',
-                    9 => '¿Ofrece garantía de los productos y/o servicios?',
-                    10 => '¿Es amable en la atención del servicio?',
-                    11 => '¿La calidad del servicio cumple con lo requerido?',
-                ];
+            $preguntas = [
+            1 => '¿Tiene precios competitivos para su servicio?',
+            2 => '¿Sus tiempos de respuesta se adecuan a nuestras necesidades?',
+            3 => '¿Suministra información técnica apropiada?',
+            4 => '¿Brinda la asesoría requerida?',
+            5 => '¿Conoce bien su servicio?',
+            6 => '¿Asiste a reuniones solicitadas específicamente?',
+            7 => '¿Plantea innovaciones y mejoras en su servicio?',
+            8 => '¿Es oportuno en la solución de quejas o reclamos?',
+            9 => '¿Ofrece garantía de los productos y/o servicios?',
+            10 => '¿Es amable en la atención del servicio?',
+            11 => '¿La calidad del servicio cumple con lo requerido?',
+            ];
 
-                $opciones = [
-                    'na' => 'N/A',
-                    0 => 'No cumple',
-                    1 => 'Cumple parcialmente',
-                    2 => 'Cumple',
-                ];
+            $opciones = [
+            0 => 'N/A',
+            0 => 'No cumple',
+            1 => 'Cumple parcialmente',
+            2 => 'Cumple',
+            ];
             @endphp
 
             <!-- PREGUNTAS -->
             @foreach ($preguntas as $num => $texto)
-                <div class="p-4 mb-4 transition border bg-gray-50 rounded-xl hover:shadow-md">
-                    <label class="label-modern">{{ $num }}. {{ $texto }}</label>
-                    <select name="pregunta_{{ $num }}" required class="input-modern">
-                        <option value="">Seleccione</option>
-                        @foreach ($opciones as $val => $label)
-                            <option value="{{ $val }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div class="p-4 mb-4 transition border bg-gray-50 rounded-xl hover:shadow-md">
+                <label class="label-modern">{{ $num }}. {{ $texto }}</label>
+                <select name="pregunta_{{ $num }}" required class="input-modern">
+                    <option value="">Seleccione</option>
+                    @foreach ($opciones as $val => $label)
+                    <option value="{{ $val }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
             @endforeach
 
             <!-- Puntos adicionales -->
@@ -128,9 +132,9 @@
                 <label class="label-modern">Firma del responsable</label>
 
                 <canvas id="firmaCanvas"
-                        width="500"
-                        height="180"
-                        class="w-full bg-white border rounded-lg shadow">
+                    width="500"
+                    height="180"
+                    class="w-full bg-white border rounded-lg shadow">
                 </canvas>
 
                 <button type="button" id="clearBtn"
@@ -210,9 +214,18 @@
         canvas.addEventListener("mouseup", parar);
 
         // Mobile
-        canvas.addEventListener("touchstart", e => { e.preventDefault(); iniciar(e); });
-        canvas.addEventListener("touchmove", e => { e.preventDefault(); dibujar(e); });
-        canvas.addEventListener("touchend", e => { e.preventDefault(); parar(); });
+        canvas.addEventListener("touchstart", e => {
+            e.preventDefault();
+            iniciar(e);
+        });
+        canvas.addEventListener("touchmove", e => {
+            e.preventDefault();
+            dibujar(e);
+        });
+        canvas.addEventListener("touchend", e => {
+            e.preventDefault();
+            parar();
+        });
 
         // Limpiar
         document.getElementById("clearBtn").addEventListener("click", () => {
@@ -228,4 +241,5 @@
 
 
 </body>
+
 </html>
