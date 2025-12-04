@@ -36,6 +36,11 @@ class EvaluacionProveedorPolicy
      */
     public function update(User $user, EvaluacionProveedor $evaluacionProveedor): bool
     {
+        // Cannot edit if VoBo has been granted
+        if (!is_null($evaluacionProveedor->vobo_fecha)) {
+            return false;
+        }
+
         if ($user->hasRole('Superadmin')) {
             return true;
         }
