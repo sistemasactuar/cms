@@ -83,11 +83,11 @@
     <table>
         <tr>
             <td><b>Razón Social:</b> {{ $evaluacion->proveedor->nombre }}</td>
-            <td><b>Fecha Control:</b> {{ $evaluacion->fecha->format('d/m/Y') }}</td>
+            <td><b>Fecha Control:</b> {{ $evaluacion->fecha->locale('es')->isoFormat('MMMM [de] YYYY') }}</td>
         </tr>
         <tr>
             <td><b>Contacto:</b> {{ $evaluacion->proveedor->contacto }}</td>
-            <td><b>Fecha Próximo Control:</b> —</td>
+            <td><b>Fecha Próximo Control:</b> {{ $evaluacion->fecha->addYear()->locale('es')->isoFormat('MMMM [de] YYYY') }}</td>
         </tr>
         <tr>
             <td colspan="2"><b>Servicio:</b> {{ $evaluacion->proveedor->servicio }}</td>
