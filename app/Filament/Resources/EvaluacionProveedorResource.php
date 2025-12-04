@@ -105,6 +105,10 @@ class EvaluacionProveedorResource extends Resource
                 Tables\Columns\IconColumn::make('bloqueado')
                     ->label('Firmado')
                     ->boolean(),
+                Tables\Columns\IconColumn::make('vobo_fecha')
+                    ->label('VoBo')
+                    ->boolean()
+                    ->getStateUsing(fn($record) => !is_null($record->vobo_fecha)),
             ])
             ->filters([
                 Tables\Filters\Filter::make('anio_actual')
@@ -123,6 +127,34 @@ class EvaluacionProveedorResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->url(fn($record) => EvaluacionProveedorResource::getUrl('view', ['record' => $record]))
                     ->color('gray'),
+                Tables\Actions\Action::make('vobo')
+                    ->label('VoBo')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(
+                        fn($record) =>
+                        $record->bloqueado &&
+                            is_null($record->vobo_fecha) &&
+                            auth()->user()->can('aprobar vobo evaluacion_proveedor')
+                    )
+                    ->form([
+                        Forms\Components\Textarea::make('vobo_observaciones')
+                            ->label('Observaciones VoBo (opcional)')
+                            ->rows(3)
+                            ->maxLength(1000),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'vobo_observaciones' => $data['vobo_observaciones'] ?? null,
+                            'vobo_fecha' => now(),
+                            'vobo_user_id' => auth()->id(),
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('VoBo registrado exitosamente')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\EditAction::make(),
             ]);
     }

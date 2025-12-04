@@ -36,11 +36,15 @@ class EvaluacionProveedor extends Model
         'observaciones',
         'firma',
         'bloqueado',
+        'vobo_observaciones',
+        'vobo_fecha',
+        'vobo_user_id',
     ];
 
     protected $casts = [
         'fecha' => 'date',
         'bloqueado' => 'boolean',
+        'vobo_fecha' => 'datetime',
     ];
 
     // Relaciones
@@ -52,6 +56,11 @@ class EvaluacionProveedor extends Model
     public function responsable()
     {
         return $this->belongsTo(\App\Models\Responsable::class, 'responsable_id');
+    }
+
+    public function voboUser()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'vobo_user_id');
     }
 
     // Cálculo automático de resultados y bloqueo tras firma

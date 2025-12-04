@@ -35,10 +35,19 @@ class EvaluacionPdfController extends Controller
             }
         }
 
+        // FIRMA VOBO (solo si está aprobado)
+        $voboSrc = null;
+        if ($evaluacion->vobo_fecha) {
+            $voboPath = public_path('images/firmavb.jpg');
+            if (File::exists($voboPath)) {
+                $voboSrc = 'data:image/jpeg;base64,' . base64_encode(File::get($voboPath));
+            }
+        }
+
         $pdf = Pdf::setOption('isRemoteEnabled', true)
-            ->loadView('pdf.evaluacion', compact('evaluacion', 'logoSrc', 'firmaSrc'))
+            ->loadView('pdf.evaluacion', compact('evaluacion', 'logoSrc', 'firmaSrc', 'voboSrc'))
             ->setPaper('letter');
 
-        return $pdf->download('evaluacion_'.$evaluacion->id.'.pdf');
+        return $pdf->download('evaluacion_' . $evaluacion->id . '.pdf');
     }
 }
