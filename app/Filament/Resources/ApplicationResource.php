@@ -45,38 +45,38 @@ class ApplicationResource extends Resource
         return $form
             ->schema([
                 Card::make('Inventario de aplicaciones')->schema([
-                TextInput::make('name')
-                    ->label('Nombre')
-                    ->required()
-                    ->unique()
-                    ->maxLength(255),
+                    TextInput::make('name')
+                        ->label('Nombre')
+                        ->required()
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(255),
 
-                Textarea::make('description')
-                    ->label('Descripción')
-                    ->rows(3),
+                    Textarea::make('description')
+                        ->label('Descripción')
+                        ->rows(3),
 
-                TextInput::make('version')
-                    ->label('Versión')
-                    ->maxLength(50),
+                    TextInput::make('version')
+                        ->label('Versión')
+                        ->maxLength(50),
 
-                TextInput::make('url')
-                    ->label('Link'),
+                    TextInput::make('url')
+                        ->label('Link'),
 
-                Select::make('status')
-                    ->label('Estado')
-                    ->options([
-                        'Activo' => 'Activo',
-                        'Inactivo' => 'Inactivo',
-                        'Mantenimiento' => 'Mantenimiento',
-                    ])
-                    ->default('Activo')
-                    ->required(),
+                    Select::make('status')
+                        ->label('Estado')
+                        ->options([
+                            'Activo' => 'Activo',
+                            'Inactivo' => 'Inactivo',
+                            'Mantenimiento' => 'Mantenimiento',
+                        ])
+                        ->default('Activo')
+                        ->required(),
 
                     Forms\Components\ToggleButtons::make('publico')
-                    ->label('¿Es pública?')
-                    ->boolean()
-                    ->default(true)
-                    ->inline(),
+                        ->label('¿Es pública?')
+                        ->boolean()
+                        ->default(true)
+                        ->inline(),
 
                 ])->columns(2),
             ]);
@@ -85,18 +85,18 @@ class ApplicationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-        ->columns([
-            TextColumn::make('name')->label('Nombre')->sortable()->searchable(),
-            TextColumn::make('description')->label('Descripción')->limit(50)->wrap(),
-            TextColumn::make('version')->label('Versión')->sortable(),
-            BadgeColumn::make('status')
-                ->label('Estado')
-                ->colors([
-                    'Activo' => 'success',
-                    'Inactivo' => 'danger',
-                    'Mantenimiento' => 'warning',
-                ])
-                ->sortable(),
+            ->columns([
+                TextColumn::make('name')->label('Nombre')->sortable()->searchable(),
+                TextColumn::make('description')->label('Descripción')->limit(50)->wrap(),
+                TextColumn::make('version')->label('Versión')->sortable(),
+                BadgeColumn::make('status')
+                    ->label('Estado')
+                    ->colors([
+                        'Activo' => 'success',
+                        'Inactivo' => 'danger',
+                        'Mantenimiento' => 'warning',
+                    ])
+                    ->sortable(),
             ])
             ->filters([
                 //
