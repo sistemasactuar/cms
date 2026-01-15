@@ -18,6 +18,9 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Section;
 
 class ApplicationResource extends Resource
 {
@@ -79,6 +82,39 @@ class ApplicationResource extends Resource
                         ->inline(),
 
                 ])->columns(2),
+
+                Section::make('Recursos Adicionales')
+                    ->schema([
+                        Repeater::make('manuals')
+                            ->label('Manuales')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Nombre del Manual')
+                                    ->required(),
+                                FileUpload::make('file')
+                                    ->label('Archivo')
+                                    ->directory('application-manuals')
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->collapsible(),
+
+                        Repeater::make('videos')
+                            ->label('Videos')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Nombre del Video')
+                                    ->required(),
+                                TextInput::make('url')
+                                    ->label('URL del Video')
+                                    ->url()
+                                    ->required(),
+                            ])
+                            ->columns(2)
+                            ->collapsible(),
+                    ])
+                    ->columns(1)
+                    ->collapsible(),
             ]);
     }
 

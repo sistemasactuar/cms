@@ -18,5 +18,13 @@ class Application extends Model
         'status',
         'url',
         'publico',
+        'manuals',
+        'videos',
+    ];
+
+    protected $casts = [
+        'manuals' => 'array',
+        'videos' => 'array',
+        'publico' => 'boolean',
     ];
 }
