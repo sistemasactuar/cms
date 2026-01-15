@@ -94,6 +94,7 @@ class ApplicationResource extends Resource
                                 FileUpload::make('file')
                                     ->label('Archivo')
                                     ->directory('application-manuals')
+                                    ->disk('public')
                                     ->required(),
                             ])
                             ->columns(2)

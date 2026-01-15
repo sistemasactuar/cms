@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ApplicationResource\Pages;
 use App\Filament\Resources\ApplicationResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Notifications\Notification;
 
 class EditApplication extends EditRecord
 {
@@ -15,6 +16,11 @@ class EditApplication extends EditRecord
         return [
             Actions\DeleteAction::make(),
         ];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
     public static function canAccess(array $parameters = []): bool
     {
@@ -39,5 +45,4 @@ class EditApplication extends EditRecord
 
         return false;
     }
-
 }
