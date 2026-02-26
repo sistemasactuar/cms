@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PlanoSaldoValorResource\Pages;
 use App\Filament\Resources\PlanoSaldoValorResource\RelationManagers;
 use App\Models\PlanoSaldoValor;
+use App\Services\PlanoSaldoValorCardImageService;
+use Filament\Notifications\Notification;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -73,6 +75,36 @@ class PlanoSaldoValorResource extends Resource
                     })
             ])
             ->actions([
+                Tables\Actions\Action::make('descargarTarjeta')
+                    ->label('Descargar tarjeta')
+                    ->icon('heroicon-o-photo')
+                    ->color('success')
+                    ->action(function (PlanoSaldoValor $record) {
+                        try {
+                            $png = app(PlanoSaldoValorCardImageService::class)->generate($record);
+                        } catch (\Throwable $exception) {
+                            Notification::make()
+                                ->title('No fue posible generar la tarjeta')
+                                ->body($exception->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return null;
+                        }
+
+                        $obligacion = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $record->obligacion);
+                        $fileSuffix = $obligacion !== '' ? $obligacion : (string) $record->id;
+                        $fileName = "tarjeta_digital_{$fileSuffix}.png";
+
+                        return response()->streamDownload(
+                            fn() => print($png),
+                            $fileName,
+                            [
+                                'Content-Type' => 'image/png',
+                                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                            ]
+                        );
+                    }),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
