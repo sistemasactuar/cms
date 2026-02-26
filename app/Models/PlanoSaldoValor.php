@@ -14,6 +14,7 @@ class PlanoSaldoValor extends Model
         'nombres',
         'apellidos',
         'valor_reportar',
+        'valor_cuota',
         'modalidad',
         'periodo',
         'observacion',

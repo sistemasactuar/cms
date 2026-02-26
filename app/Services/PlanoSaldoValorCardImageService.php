@@ -20,7 +20,8 @@ class PlanoSaldoValorCardImageService
 
         $credito = trim((string) $record->obligacion);
         $fechaPago = $this->formatFechaPago($record->fecha_vigencia);
-        $valorCuota = '$' . number_format((float) ($record->valor_reportar ?? 0), 0, ',', '.');
+        $valorCuotaFuente = $record->valor_cuota ?? $record->valor_reportar ?? 0;
+        $valorCuota = '$' . number_format((float) $valorCuotaFuente, 0, ',', '.');
 
         $fontRegular = $this->resolveFontPath(false);
         $fontBold = $this->resolveFontPath(true) ?? $fontRegular;
