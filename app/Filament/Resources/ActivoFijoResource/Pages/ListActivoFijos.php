@@ -18,7 +18,7 @@ class ListActivoFijos extends ListRecords
         ];
     }
 
-    protected function getHeaderWidgetsColumns(): int|array
+    public function getHeaderWidgetsColumns(): int|array
     {
         return 1;
     }
