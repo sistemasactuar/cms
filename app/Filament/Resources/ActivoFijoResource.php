@@ -123,6 +123,7 @@ class ActivoFijoResource extends Resource
                             ->options([
                                 'Usado' => 'Usado',
                                 'Nuevo' => 'Nuevo',
+                                'Leasing' => 'Leasing',
                                 'Remanufacturado' => 'Remanufacturado',
                             ]),
                         Forms\Components\Textarea::make('observacion')

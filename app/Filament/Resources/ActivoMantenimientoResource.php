@@ -27,15 +27,20 @@ class ActivoMantenimientoResource extends Resource
             ->schema([
                 Forms\Components\Select::make('equipo_id')
                     ->label('Activo')
-                    ->options(fn() => ActivoFijo::query()
-                        ->orderBy('descripcion')
-                        ->get()
-                        ->mapWithKeys(fn(ActivoFijo $activo) => [
-                            $activo->id => trim(($activo->codigo ? $activo->codigo . ' - ' : '') . $activo->descripcion),
-                        ])
-                        ->all())
+                    ->relationship(
+                        name: 'equipo',
+                        titleAttribute: 'descripcion',
+                        modifyQueryUsing: fn($query) => $query->with('sede')->orderBy('descripcion')
+                    )
+                    ->getOptionLabelFromRecordUsing(
+                        fn(ActivoFijo $activo): string => trim(
+                            ($activo->codigo ? $activo->codigo . ' - ' : '') .
+                            $activo->descripcion .
+                            ($activo->sede?->NombreSede ? ' (' . $activo->sede->NombreSede . ')' : '')
+                        )
+                    )
                     ->default(fn() => request()->integer('equipo_id') ?: null)
-                    ->searchable()
+                    ->searchable(['codigo', 'descripcion', 'serie'])
                     ->preload()
                     ->required(),
                 Forms\Components\Select::make('tipo_M')
