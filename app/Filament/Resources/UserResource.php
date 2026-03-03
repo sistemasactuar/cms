@@ -81,7 +81,9 @@ class UserResource extends Resource
                         ])
                         ->required()
                         ->native(false),
-
+                    TextInput::make('area')
+                        ->label('Area')
+                        ->maxLength(120),
                     Forms\Components\TextInput::make('name')
                         ->label('Usuario')
                         ->required()
@@ -121,6 +123,7 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('nombres')->label('Nombres')->searchable(),
                 Tables\Columns\TextColumn::make('apellidos')->label('Apellidos')->searchable(),
                 Tables\Columns\TextColumn::make('codigo')->label('Código del Funcionario')->sortable(),
+                Tables\Columns\TextColumn::make('area')->label('Area')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('name')->label('Usuario')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
@@ -139,7 +142,17 @@ class UserResource extends Resource
                     ->label('Activo'),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('area')
+                    ->label('Area')
+                    ->options(
+                        User::query()
+                            ->whereNotNull('area')
+                            ->where('area', '!=', '')
+                            ->distinct()
+                            ->orderBy('area')
+                            ->pluck('area', 'area')
+                            ->toArray()
+                    ),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

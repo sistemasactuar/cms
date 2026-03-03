@@ -3,8 +3,10 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ActivoFijoResource\Pages;
+use App\Filament\Resources\ActivoFijoResource\RelationManagers\HistorialResponsablesRelationManager;
 use App\Filament\Resources\ActivoFijoResource\RelationManagers\MaintenimientosRelationManager;
 use App\Models\ActivoFijo;
+use App\Models\User;
 use App\Models\MacroTipoActivo;
 use App\Models\Sede;
 use App\Models\TipoActivo;
@@ -114,6 +116,21 @@ class ActivoFijoResource extends Resource
                         Forms\Components\TextInput::make('responsable')
                             ->label('Responsable')
                             ->maxLength(180),
+                        Forms\Components\Select::make('responsable_user_id')
+                            ->label('Usuario Responsable')
+                            ->relationship(
+                                name: 'responsableUsuario',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: fn($query) => $query->where('activo', 1)->orderBy('name')
+                            )
+                            ->getOptionLabelFromRecordUsing(
+                                fn(User $user): string => trim(
+                                    $user->name . ($user->area ? ' (' . $user->area . ')' : '')
+                                )
+                            )
+                            ->searchable(['name', 'email', 'numeroDocumento', 'area'])
+                            ->preload()
+                            ->helperText('Asociacion interna para control por usuario y area.'),
                         Forms\Components\TextInput::make('valor')
                             ->label('Valor')
                             ->numeric()
@@ -273,6 +290,14 @@ class ActivoFijoResource extends Resource
                 Tables\Columns\TextColumn::make('responsable')
                     ->label('Responsable')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('responsableUsuario.name')
+                    ->label('Usuario Responsable')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('responsableUsuario.area')
+                    ->label('Area')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('valor')
                     ->money('COP')
                     ->sortable(),
@@ -288,6 +313,33 @@ class ActivoFijoResource extends Resource
             ->filters([
                 Tables\Filters\TernaryFilter::make('activo')
                     ->label('Estado'),
+                Tables\Filters\SelectFilter::make('responsable_user_id')
+                    ->label('Usuario Responsable')
+                    ->relationship('responsableUsuario', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('area_responsable')
+                    ->label('Area Responsable')
+                    ->options(
+                        User::query()
+                            ->whereNotNull('area')
+                            ->where('area', '!=', '')
+                            ->distinct()
+                            ->orderBy('area')
+                            ->pluck('area', 'area')
+                            ->toArray()
+                    )
+                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                        $value = $data['value'] ?? null;
+
+                        if (!filled($value)) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('responsableUsuario', function ($subQuery) use ($value): void {
+                            $subQuery->where('area', $value);
+                        });
+                    }),
             ])
             ->actions([
                 Tables\Actions\Action::make('estado')
@@ -336,6 +388,7 @@ class ActivoFijoResource extends Resource
     {
         return [
             MaintenimientosRelationManager::class,
+            HistorialResponsablesRelationManager::class,
         ];
     }
 
@@ -351,7 +404,7 @@ class ActivoFijoResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
-            ->with(['tipoActivo.macroTipo', 'sede'])
+            ->with(['tipoActivo.macroTipo', 'sede', 'responsableUsuario'])
             ->withMax('mantenimientos', 'fecadi');
     }
 

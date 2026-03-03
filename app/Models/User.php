@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -29,6 +30,7 @@ class User extends Authenticatable
         'perfil_id', // ID del Perfil
         'proceso_id', // ID del Proceso
         'sede_id', // ID de la Sede
+        'area', // Area del usuario
         'activo', // Activo/Inactivo
     ];
 
@@ -58,6 +60,11 @@ class User extends Authenticatable
     public function username(): string
     {
         return 'username';
+    }
+
+    public function activosAsignados(): HasMany
+    {
+        return $this->hasMany(ActivoFijo::class, 'responsable_user_id');
     }
     /* public function canAccessPanel(Panel $panel): bool
      {
