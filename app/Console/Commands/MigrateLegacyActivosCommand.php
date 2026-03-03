@@ -82,6 +82,7 @@ class MigrateLegacyActivosCommand extends Command
             chunkSize: $chunkSize,
             validateRow: null,
         );
+        $this->fillTipoMacroDefault();
 
         $activosStats = $this->migrateTableById(
             sourceConnection: $legacyConnection,
@@ -185,6 +186,32 @@ class MigrateLegacyActivosCommand extends Command
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
         $this->warn('Tablas destino vaciadas.');
+    }
+
+    private function fillTipoMacroDefault(): void
+    {
+        if (!Schema::hasTable('para_macro_tipo_activo') || !Schema::hasColumn('para_tipo_activo', 'macro_tipo_id')) {
+            return;
+        }
+
+        $macroOtrosId = DB::table('para_macro_tipo_activo')
+            ->where('codigo', 'OTR')
+            ->value('id');
+
+        if ($macroOtrosId === null) {
+            $macroOtrosId = DB::table('para_macro_tipo_activo')->min('id');
+        }
+
+        if ($macroOtrosId === null) {
+            return;
+        }
+
+        DB::table('para_tipo_activo')
+            ->whereNull('macro_tipo_id')
+            ->update([
+                'macro_tipo_id' => $macroOtrosId,
+                'updated_at' => now(),
+            ]);
     }
 
     /**

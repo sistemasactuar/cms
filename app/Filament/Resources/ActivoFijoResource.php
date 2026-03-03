@@ -5,12 +5,14 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ActivoFijoResource\Pages;
 use App\Filament\Resources\ActivoFijoResource\RelationManagers\MaintenimientosRelationManager;
 use App\Models\ActivoFijo;
+use App\Models\MacroTipoActivo;
 use App\Models\Sede;
 use App\Models\TipoActivo;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -32,13 +34,62 @@ class ActivoFijoResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Datos Generales')
                     ->schema([
-                        Forms\Components\Select::make('tipo')
-                            ->label('Tipo')
-                            ->options(fn() => TipoActivo::query()->where('activo', 1)->orderBy('id')->pluck('tipo', 'id')->all())
+                        Forms\Components\Select::make('macro_tipo_id')
+                            ->label('Macrotipo')
+                            ->options(fn() => MacroTipoActivo::query()->where('activo', 1)->orderBy('nombre')->pluck('nombre', 'id')->all())
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->live(),
+                            ->dehydrated(false)
+                            ->live()
+                            ->afterStateHydrated(function ($state, Set $set, Get $get): void {
+                                if (filled($state)) {
+                                    return;
+                                }
+
+                                $tipoId = $get('tipo');
+                                if (blank($tipoId)) {
+                                    return;
+                                }
+
+                                $macroId = TipoActivo::query()->whereKey($tipoId)->value('macro_tipo_id');
+                                if ($macroId !== null) {
+                                    $set('macro_tipo_id', $macroId);
+                                }
+                            })
+                            ->afterStateUpdated(function (Set $set): void {
+                                $set('tipo', null);
+                            }),
+                        Forms\Components\Select::make('tipo')
+                            ->label('Tipo')
+                            ->options(function (Get $get): array {
+                                $macroTipoId = $get('macro_tipo_id');
+
+                                return TipoActivo::query()
+                                    ->where('activo', 1)
+                                    ->when(
+                                        filled($macroTipoId),
+                                        fn($query) => $query->where('macro_tipo_id', $macroTipoId)
+                                    )
+                                    ->orderBy('tipo')
+                                    ->pluck('tipo', 'id')
+                                    ->all();
+                            })
+                            ->required()
+                            ->disabled(fn(Get $get): bool => blank($get('macro_tipo_id')) && blank($get('tipo')))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set): void {
+                                if (blank($state)) {
+                                    return;
+                                }
+
+                                $macroId = TipoActivo::query()->whereKey($state)->value('macro_tipo_id');
+                                if ($macroId !== null) {
+                                    $set('macro_tipo_id', $macroId);
+                                }
+                            }),
                         Forms\Components\TextInput::make('codigo')
                             ->label('Codigo Inventario')
                             ->maxLength(120),
@@ -206,6 +257,10 @@ class ActivoFijoResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->wrap(),
+                Tables\Columns\TextColumn::make('tipoActivo.macroTipo.nombre')
+                    ->label('Macrotipo')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('tipoActivo.tipo')
                     ->label('Tipo')
                     ->searchable()
@@ -298,7 +353,9 @@ class ActivoFijoResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->withMax('mantenimientos', 'fecadi');
+        return parent::getEloquentQuery()
+            ->with(['tipoActivo.macroTipo', 'sede'])
+            ->withMax('mantenimientos', 'fecadi');
     }
 
     public static function opcionesSiNo(): array
