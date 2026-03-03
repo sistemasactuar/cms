@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ActivoMantenimientoResource\Pages;
 
 use App\Filament\Resources\ActivoMantenimientoResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditActivoMantenimiento extends EditRecord
@@ -12,9 +11,7 @@ class EditActivoMantenimiento extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        return [];
     }
 
     protected function getRedirectUrl(): string
