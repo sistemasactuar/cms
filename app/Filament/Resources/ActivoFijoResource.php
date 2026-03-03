@@ -124,7 +124,13 @@ class ActivoFijoResource extends Resource
                             ->relationship(
                                 name: 'responsableUsuario',
                                 titleAttribute: 'name',
-                                modifyQueryUsing: fn($query) => $query->where('activo', 1)->orderBy('name')
+                                modifyQueryUsing: function ($query) {
+                                    if (Schema::hasColumn('users', 'activo')) {
+                                        $query->where('activo', 1);
+                                    }
+
+                                    return $query->orderBy('name');
+                                }
                             )
                             ->getOptionLabelFromRecordUsing(
                                 fn(User $user): string => trim(
