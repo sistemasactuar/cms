@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ActivoFijoResource\Pages;
 
 use App\Filament\Resources\ActivoFijoResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditActivoFijo extends EditRecord
@@ -12,9 +11,7 @@ class EditActivoFijo extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\DeleteAction::make(),
-        ];
+        return [];
     }
 
     protected function getRedirectUrl(): string

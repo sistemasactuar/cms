@@ -61,6 +61,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 'panels::topbar.end',
                 fn () => view('components.online-status'),
+            )
+            ->renderHook(
+                'panels::head.end',
+                fn () => view('components.filament-sticky-pagination-style'),
             );
     }
 }
