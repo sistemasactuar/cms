@@ -17,6 +17,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\EditAction;
 use Filament\Support\View\Components\Modal;
@@ -83,7 +84,9 @@ class UserResource extends Resource
                         ->native(false),
                     TextInput::make('area')
                         ->label('Area')
-                        ->maxLength(120),
+                        ->maxLength(120)
+                        ->visible(fn (): bool => Schema::hasColumn('users', 'area'))
+                        ->dehydrated(fn (): bool => Schema::hasColumn('users', 'area')),
                     Forms\Components\TextInput::make('name')
                         ->label('Usuario')
                         ->required()
@@ -123,7 +126,11 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('nombres')->label('Nombres')->searchable(),
                 Tables\Columns\TextColumn::make('apellidos')->label('Apellidos')->searchable(),
                 Tables\Columns\TextColumn::make('codigo')->label('Código del Funcionario')->sortable(),
-                Tables\Columns\TextColumn::make('area')->label('Area')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('area')
+                    ->label('Area')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(fn (): bool => Schema::hasColumn('users', 'area')),
                 Tables\Columns\TextColumn::make('name')->label('Usuario')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
@@ -144,15 +151,20 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('area')
                     ->label('Area')
-                    ->options(
-                        User::query()
+                    ->visible(fn (): bool => Schema::hasColumn('users', 'area'))
+                    ->options(function (): array {
+                        if (!Schema::hasColumn('users', 'area')) {
+                            return [];
+                        }
+
+                        return User::query()
                             ->whereNotNull('area')
                             ->where('area', '!=', '')
                             ->distinct()
                             ->orderBy('area')
                             ->pluck('area', 'area')
-                            ->toArray()
-                    ),
+                            ->toArray();
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

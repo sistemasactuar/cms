@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Schema;
 
 class ActivoFijoResource extends Resource
 {
@@ -118,6 +119,8 @@ class ActivoFijoResource extends Resource
                             ->maxLength(180),
                         Forms\Components\Select::make('responsable_user_id')
                             ->label('Usuario Responsable')
+                            ->visible(fn (): bool => Schema::hasColumn('proc_activofijo', 'responsable_user_id'))
+                            ->dehydrated(fn (): bool => Schema::hasColumn('proc_activofijo', 'responsable_user_id'))
                             ->relationship(
                                 name: 'responsableUsuario',
                                 titleAttribute: 'name',
@@ -128,7 +131,7 @@ class ActivoFijoResource extends Resource
                                     $user->name . ($user->area ? ' (' . $user->area . ')' : '')
                                 )
                             )
-                            ->searchable(['name', 'email', 'numeroDocumento', 'area'])
+                            ->searchable(['name', 'email', 'numeroDocumento'])
                             ->preload()
                             ->helperText('Asociacion interna para control por usuario y area.'),
                         Forms\Components\TextInput::make('valor')
@@ -293,11 +296,11 @@ class ActivoFijoResource extends Resource
                 Tables\Columns\TextColumn::make('responsableUsuario.name')
                     ->label('Usuario Responsable')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn (): bool => Schema::hasColumn('proc_activofijo', 'responsable_user_id')),
                 Tables\Columns\TextColumn::make('responsableUsuario.area')
                     ->label('Area')
-                    ->searchable()
-                    ->sortable(),
+                    ->visible(fn (): bool => Schema::hasColumn('users', 'area')),
                 Tables\Columns\TextColumn::make('valor')
                     ->money('COP')
                     ->sortable(),
@@ -315,24 +318,30 @@ class ActivoFijoResource extends Resource
                     ->label('Estado'),
                 Tables\Filters\SelectFilter::make('responsable_user_id')
                     ->label('Usuario Responsable')
+                    ->visible(fn (): bool => Schema::hasColumn('proc_activofijo', 'responsable_user_id'))
                     ->relationship('responsableUsuario', 'name')
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('area_responsable')
                     ->label('Area Responsable')
-                    ->options(
-                        User::query()
+                    ->visible(fn (): bool => Schema::hasColumn('users', 'area'))
+                    ->options(function (): array {
+                        if (!Schema::hasColumn('users', 'area')) {
+                            return [];
+                        }
+
+                        return User::query()
                             ->whereNotNull('area')
                             ->where('area', '!=', '')
                             ->distinct()
                             ->orderBy('area')
                             ->pluck('area', 'area')
-                            ->toArray()
-                    )
+                            ->toArray();
+                    })
                     ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
                         $value = $data['value'] ?? null;
 
-                        if (!filled($value)) {
+                        if (!filled($value) || !Schema::hasColumn('users', 'area')) {
                             return $query;
                         }
 
