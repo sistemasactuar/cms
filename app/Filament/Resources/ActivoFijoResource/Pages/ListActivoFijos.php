@@ -24,7 +24,7 @@ class ListActivoFijos extends ListRecords
                 ->color('primary')
                 ->form([
                     Forms\Components\FileUpload::make('archivo_sql')
-                        ->label('Archivo SQL de proc_activofijo')
+                        ->label('Archivo SQL de activos y mantenimientos')
                         ->acceptedFileTypes([
                             'application/sql',
                             'text/plain',
@@ -62,11 +62,15 @@ class ListActivoFijos extends ListRecords
                     Notification::make()
                         ->title('Importacion finalizada')
                         ->body(
-                            "Procesados: {$result['procesados']}. " .
-                            "Nuevos: {$result['creados']}. " .
-                            "Actualizados: {$result['actualizados']}. " .
-                            "Ignorados: {$result['ignorados']}. " .
-                            "Saltados: {$result['saltados']}."
+                            "Activos -> Procesados: {$result['procesados']}, Nuevos: {$result['creados']}, " .
+                            "Actualizados: {$result['actualizados']}, Ignorados: {$result['ignorados']}, " .
+                            "Saltados: {$result['saltados']}. " .
+                            "Mantenimientos -> Procesados: {$result['mantenimientos_procesados']}, " .
+                            "Nuevos: {$result['mantenimientos_creados']}, " .
+                            "Actualizados: {$result['mantenimientos_actualizados']}, " .
+                            "Ignorados: {$result['mantenimientos_ignorados']}, " .
+                            "Saltados: {$result['mantenimientos_saltados']}, " .
+                            "Sin equipo: {$result['mantenimientos_sin_equipo']}."
                         )
                         ->success()
                         ->send();

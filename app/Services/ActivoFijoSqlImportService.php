@@ -20,7 +20,7 @@ class ActivoFijoSqlImportService
             throw new RuntimeException('El archivo esta vacio o no se pudo leer.');
         }
 
-        $stats = [
+        $statsActivos = [
             'procesados' => 0,
             'creados' => 0,
             'actualizados' => 0,
@@ -28,58 +28,61 @@ class ActivoFijoSqlImportService
             'saltados' => 0,
         ];
 
-        $foundInsert = false;
+        $statsMantenimientos = [
+            'procesados' => 0,
+            'creados' => 0,
+            'actualizados' => 0,
+            'ignorados' => 0,
+            'saltados' => 0,
+            'saltados_sin_equipo' => 0,
+        ];
 
-        foreach ($this->extractInsertStatements($content) as $statement) {
-            $foundInsert = true;
+        $activoStatements = $this->extractInsertStatements($content, 'proc_activofijo');
+        $mantenimientoStatements = $this->extractInsertStatements($content, 'proc_mante_activofijo');
 
+        foreach ($activoStatements as $statement) {
             $columns = $statement['columns'];
             $rows = $statement['rows'];
 
             foreach ($rows as $values) {
                 $assoc = $this->combineColumnsValues($columns, $values);
-                $payload = $this->buildPayload($assoc);
-
-                $id = $payload['id'] ?? null;
-                if ($id === null) {
-                    $stats['saltados']++;
-                    continue;
-                }
-
-                $current = DB::table('proc_activofijo')->where('id', $id)->first();
-
-                if ($current === null) {
-                    DB::table('proc_activofijo')->insert($payload);
-                    $stats['creados']++;
-                    $stats['procesados']++;
-                    continue;
-                }
-
-                $changes = $this->extractChanges($current, $payload);
-                if ($changes === []) {
-                    $stats['ignorados']++;
-                    continue;
-                }
-
-                DB::table('proc_activofijo')
-                    ->where('id', $id)
-                    ->update($changes);
-
-                $stats['actualizados']++;
-                $stats['procesados']++;
+                $this->importActivoRow($assoc, $statsActivos);
             }
         }
 
-        if (!$foundInsert) {
-            throw new RuntimeException('No se encontraron sentencias INSERT INTO proc_activofijo en el archivo.');
+        foreach ($mantenimientoStatements as $statement) {
+            $columns = $statement['columns'];
+            $rows = $statement['rows'];
+
+            foreach ($rows as $values) {
+                $assoc = $this->combineColumnsValues($columns, $values);
+                $this->importMantenimientoRow($assoc, $statsMantenimientos);
+            }
         }
 
-        return $stats;
+        if ($activoStatements === [] && $mantenimientoStatements === []) {
+            throw new RuntimeException('No se encontraron sentencias INSERT de activos o mantenimientos en el archivo.');
+        }
+
+        return [
+            'procesados' => $statsActivos['procesados'],
+            'creados' => $statsActivos['creados'],
+            'actualizados' => $statsActivos['actualizados'],
+            'ignorados' => $statsActivos['ignorados'],
+            'saltados' => $statsActivos['saltados'],
+            'mantenimientos_procesados' => $statsMantenimientos['procesados'],
+            'mantenimientos_creados' => $statsMantenimientos['creados'],
+            'mantenimientos_actualizados' => $statsMantenimientos['actualizados'],
+            'mantenimientos_ignorados' => $statsMantenimientos['ignorados'],
+            'mantenimientos_saltados' => $statsMantenimientos['saltados'],
+            'mantenimientos_sin_equipo' => $statsMantenimientos['saltados_sin_equipo'],
+        ];
     }
 
-    private function extractInsertStatements(string $content): array
+    private function extractInsertStatements(string $content, string $table): array
     {
-        $pattern = '/INSERT\s+INTO\s+`?proc_activofijo`?\s*\((.*?)\)\s*VALUES\s*(.*?);/is';
+        $quotedTable = preg_quote($table, '/');
+        $pattern = '/INSERT\s+INTO\s+`?' . $quotedTable . '`?\s*\((.*?)\)\s*VALUES\s*(.*?);/is';
         preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
 
         $result = [];
@@ -206,7 +209,80 @@ class ActivoFijoSqlImportService
         return $assoc === false ? [] : $assoc;
     }
 
-    private function buildPayload(array $row): array
+    private function importActivoRow(array $row, array &$stats): void
+    {
+        $payload = $this->buildActivoPayload($row);
+        $id = $payload['id'] ?? null;
+
+        if ($id === null) {
+            $stats['saltados']++;
+            return;
+        }
+
+        $current = DB::table('proc_activofijo')->where('id', $id)->first();
+
+        if ($current === null) {
+            DB::table('proc_activofijo')->insert($payload);
+            $stats['creados']++;
+            $stats['procesados']++;
+            return;
+        }
+
+        $changes = $this->extractActivoChanges($current, $payload);
+        if ($changes === []) {
+            $stats['ignorados']++;
+            return;
+        }
+
+        DB::table('proc_activofijo')
+            ->where('id', $id)
+            ->update($changes);
+
+        $stats['actualizados']++;
+        $stats['procesados']++;
+    }
+
+    private function importMantenimientoRow(array $row, array &$stats): void
+    {
+        $payload = $this->buildMantenimientoPayload($row);
+        $id = $payload['id'] ?? null;
+
+        if ($id === null) {
+            $stats['saltados']++;
+            return;
+        }
+
+        $equipoId = $payload['equipo_id'] ?? null;
+        if ($equipoId === null || !$this->equipoExiste($equipoId)) {
+            $stats['saltados']++;
+            $stats['saltados_sin_equipo']++;
+            return;
+        }
+
+        $current = DB::table('proc_mante_activofijo')->where('id', $id)->first();
+
+        if ($current === null) {
+            DB::table('proc_mante_activofijo')->insert($payload);
+            $stats['creados']++;
+            $stats['procesados']++;
+            return;
+        }
+
+        $changes = $this->extractMantenimientoChanges($current, $payload);
+        if ($changes === []) {
+            $stats['ignorados']++;
+            return;
+        }
+
+        DB::table('proc_mante_activofijo')
+            ->where('id', $id)
+            ->update($changes);
+
+        $stats['actualizados']++;
+        $stats['procesados']++;
+    }
+
+    private function buildActivoPayload(array $row): array
     {
         $id = $this->toInt($row['id'] ?? null);
         $fecadi = $this->toDate($row['fecadi'] ?? null);
@@ -274,6 +350,33 @@ class ActivoFijoSqlImportService
         ];
     }
 
+    private function buildMantenimientoPayload(array $row): array
+    {
+        $id = $this->toInt($row['id'] ?? null);
+        $fecadi = $this->toDate($row['fecadi'] ?? null);
+        $fecmod = $this->toDate($row['fecmod'] ?? null);
+        $horadi = $this->toTime($row['horadi'] ?? null);
+        $hormod = $this->toTime($row['hormod'] ?? null);
+        $createdAt = $this->combineDateTime($fecadi, $horadi) ?? now()->toDateTimeString();
+        $updatedAt = $this->combineDateTime($fecmod, $hormod) ?? $createdAt;
+
+        return [
+            'id' => $id,
+            'tipo_M' => $this->toTinyInt($row['tipo_M'] ?? null) ?? 0,
+            'observacion_M' => $this->sanitizeText($row['observacion_M'] ?? null) ?: 'SIN OBSERVACION',
+            'equipo_id' => $this->toInt($row['equipo_id'] ?? null),
+            'activo' => $this->toBool($row['activo'] ?? null),
+            'usuadi' => $this->toInt($row['usuadi'] ?? null),
+            'fecadi' => $fecadi,
+            'horadi' => $horadi,
+            'usumod' => $this->toInt($row['usumod'] ?? null),
+            'fecmod' => $fecmod,
+            'hormod' => $hormod,
+            'created_at' => $createdAt,
+            'updated_at' => $updatedAt,
+        ];
+    }
+
     private function resolveTipo(mixed $value): ?int
     {
         $raw = trim((string) $value);
@@ -302,7 +405,7 @@ class ActivoFijoSqlImportService
         return (int) $tipo->id;
     }
 
-    private function extractChanges(object $current, array $payload): array
+    private function extractActivoChanges(object $current, array $payload): array
     {
         $changes = [];
 
@@ -312,7 +415,7 @@ class ActivoFijoSqlImportService
             }
 
             $stored = $current->{$field} ?? null;
-            if ($this->sameValue($field, $stored, $incoming)) {
+            if ($this->sameActivoValue($field, $stored, $incoming)) {
                 continue;
             }
 
@@ -322,7 +425,27 @@ class ActivoFijoSqlImportService
         return $changes;
     }
 
-    private function sameValue(string $field, mixed $stored, mixed $incoming): bool
+    private function extractMantenimientoChanges(object $current, array $payload): array
+    {
+        $changes = [];
+
+        foreach ($payload as $field => $incoming) {
+            if ($field === 'id') {
+                continue;
+            }
+
+            $stored = $current->{$field} ?? null;
+            if ($this->sameMantenimientoValue($field, $stored, $incoming)) {
+                continue;
+            }
+
+            $changes[$field] = $incoming;
+        }
+
+        return $changes;
+    }
+
+    private function sameActivoValue(string $field, mixed $stored, mixed $incoming): bool
     {
         if (in_array($field, ['valor'], true)) {
             return round((float) $stored, 2) === round((float) $incoming, 2);
@@ -357,6 +480,32 @@ class ActivoFijoSqlImportService
         }
 
         return trim((string) ($stored ?? '')) === trim((string) ($incoming ?? ''));
+    }
+
+    private function sameMantenimientoValue(string $field, mixed $stored, mixed $incoming): bool
+    {
+        if (in_array($field, ['tipo_M', 'equipo_id', 'activo', 'usuadi', 'usumod'], true)) {
+            return (int) ($stored ?? 0) === (int) ($incoming ?? 0);
+        }
+
+        if (in_array($field, ['fecadi', 'fecmod'], true)) {
+            return $this->toDate($stored) === $this->toDate($incoming);
+        }
+
+        if (in_array($field, ['horadi', 'hormod'], true)) {
+            return $this->toTime($stored) === $this->toTime($incoming);
+        }
+
+        if (in_array($field, ['created_at', 'updated_at'], true)) {
+            return $this->toDateTime($stored) === $this->toDateTime($incoming);
+        }
+
+        return trim((string) ($stored ?? '')) === trim((string) ($incoming ?? ''));
+    }
+
+    private function equipoExiste(int $equipoId): bool
+    {
+        return DB::table('proc_activofijo')->where('id', $equipoId)->exists();
     }
 
     private function toInt(mixed $value): ?int
@@ -529,4 +678,3 @@ class ActivoFijoSqlImportService
         return str_replace(["\r", "\n"], ' ', $text);
     }
 }
-
