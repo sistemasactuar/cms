@@ -248,7 +248,6 @@ class VotacionResource extends Resource
                             ->success()
                             ->send();
                     })
-                    ->confirm()
                     ->requiresConfirmation()
                     ->modalHeading('¿Sincronizar todos los participantes?')
                     ->modalDescription('Esto buscará a todos los aportantes activos en el sistema y los habilitará para esta votación, permitiendo ver quiénes faltan por votar en el reporte.')

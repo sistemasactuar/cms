@@ -103,8 +103,15 @@ class AportanteResource extends Resource
                         ]);
                     }),
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => auth()->user()?->hasAnyRole(['super_admin', 'admin'])),
             ])
-            ->bulkActions([]);
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->hasAnyRole(['super_admin', 'admin'])),
+                ]),
+            ]);
     }
 
     public static function getRelations(): array
