@@ -4,6 +4,8 @@ use App\Models\Responsable;
 use Illuminate\Http\Request; //
 use App\Models\EvaluacionProveedor;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PortalMediaController;
+use App\Http\Controllers\PortalVotacionController;
 use App\Http\Controllers\WelcomeController;
 
 Route::get('/', function () {
@@ -111,3 +113,39 @@ Route::post('/evaluador/{token}/evaluacion/{id}', function (Request $req, $token
 
 Route::get('/evaluacion/{id}/pdf', [\App\Http\Controllers\EvaluacionPdfController::class, 'pdf'])
     ->name('evaluacion.pdf');
+
+/*
+|--------------------------------------------------------------------------
+| PORTAL DE VOTACIONES (Aportantes)
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/votaciones', [PortalVotacionController::class, 'login'])
+    ->name('votaciones.portal.login');
+
+Route::post('/votaciones/ingresar', [PortalVotacionController::class, 'authenticate'])
+    ->name('votaciones.portal.authenticate');
+
+Route::get('/portal-media/{path}', [PortalMediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('portal.media');
+
+Route::middleware('aportante.auth')->group(function (): void {
+    Route::get('/votaciones/panel', [PortalVotacionController::class, 'dashboard'])
+        ->name('votaciones.portal.dashboard');
+
+    Route::get('/votaciones/{votacion}/orden-del-dia', [PortalVotacionController::class, 'agenda'])
+        ->name('votaciones.portal.agenda');
+
+    Route::post('/votaciones/{votacion}/orden-del-dia', [PortalVotacionController::class, 'acceptAgenda'])
+        ->name('votaciones.portal.agenda.accept');
+
+    Route::get('/votaciones/{votacion}/votar', [PortalVotacionController::class, 'voteForm'])
+        ->name('votaciones.portal.vote.form');
+
+    Route::post('/votaciones/{votacion}/votar', [PortalVotacionController::class, 'submitVote'])
+        ->name('votaciones.portal.vote.submit');
+
+    Route::post('/votaciones/salir', [PortalVotacionController::class, 'logout'])
+        ->name('votaciones.portal.logout');
+});
