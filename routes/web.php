@@ -146,6 +146,13 @@ Route::middleware('aportante.auth')->group(function (): void {
     Route::post('/votaciones/{votacion}/votar', [PortalVotacionController::class, 'submitVote'])
         ->name('votaciones.portal.vote.submit');
 
+    Route::get('/votaciones/{votacion}/resultados', [PortalVotacionController::class, 'resultados'])
+        ->name('votaciones.portal.resultados');
+
     Route::post('/votaciones/salir', [PortalVotacionController::class, 'logout'])
         ->name('votaciones.portal.logout');
 });
+
+Route::get('/votaciones/{votacion}/monitoreo', [PortalVotacionController::class, 'monitor'])
+    ->name('votaciones.portal.monitor');
+

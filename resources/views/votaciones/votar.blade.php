@@ -18,12 +18,12 @@
             <div class="flex flex-wrap items-start justify-between gap-4">
                 <div>
                     <span class="badge-soft {{ $votacion->tipo_votacion === 'planilla' ? 'orange' : 'blue' }}">
-                        {{ $votacion->tipo_votacion === 'planilla' ? 'Voto por planilla' : 'Voto nominal' }}
+                        {{ $votacion->tipo_votacion === 'planilla' ? 'Voto por Plancha' : 'Voto Nominal' }}
                     </span>
                     <h2 class="mt-4 text-2xl font-extrabold text-slate-900">Marca tu seleccion</h2>
                     <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
                         @if ($votacion->tipo_votacion === 'planilla')
-                            Selecciona una planilla. El sistema registrara un unico voto para la opcion elegida.
+                            Selecciona una plancha. Tu participacion quedara registrada bajo un unico voto para la lista elegida.
                         @else
                             Puedes seleccionar hasta {{ $maxSeleccion }} candidato(s). Cuando termines, presiona el boton de registrar voto.
                         @endif
@@ -50,12 +50,12 @@
                             <div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     @if ($planilla->numero)
-                                        <span class="badge-soft blue">Planilla {{ $planilla->numero }}</span>
+                                        <span class="badge-soft blue">Plancha {{ $planilla->numero }}</span>
                                     @endif
                                     <span class="badge-soft green">{{ $planilla->candidatos->count() }} integrante(s)</span>
                                 </div>
                                 <h3 class="mt-4 text-xl font-extrabold text-slate-900">{{ $planilla->nombre }}</h3>
-                                <p class="mt-2 text-sm leading-7 text-slate-600">{{ $planilla->descripcion ?: 'Planilla habilitada para votacion.' }}</p>
+                                <p class="mt-2 text-sm leading-7 text-slate-600">{{ $planilla->descripcion ?: 'Plancha habilitada para votacion.' }}</p>
                             </div>
                             @if ($planilla->logo_path)
                                 <div class="mini-logo-card h-20 w-20 rounded-[22px] p-3">
@@ -85,7 +85,7 @@
                     </label>
                 @empty
                     <div class="surface-card rounded-[30px] p-8 text-center text-slate-500 md:col-span-2">
-                        Aun no hay planillas activas para esta votacion.
+                        Aun no hay planchas activas para esta votacion.
                     </div>
                 @endforelse
             </section>
@@ -146,7 +146,7 @@
             const checkboxSelector = '.vote-checkbox';
             const radioSelector = '.vote-radio';
             const counter = document.getElementById('selection-counter');
-            const maxAllowed = {{ $maxSeleccion }};
+            const maxAllowed = parseInt('{{ $maxSeleccion }}') || 1;
 
             const refreshSelectedStyles = () => {
                 document.querySelectorAll(cardSelector).forEach((card) => {

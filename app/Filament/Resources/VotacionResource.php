@@ -3,8 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\VotacionResource\Pages;
-use App\Filament\Resources\VotacionResource\RelationManagers\CandidatosRelationManager;
-use App\Filament\Resources\VotacionResource\RelationManagers\PlanillasRelationManager;
 use App\Filament\Resources\VotacionResource\RelationManagers\VotosRelationManager;
 use App\Models\Votacion;
 use Filament\Forms;
@@ -55,7 +53,7 @@ class VotacionResource extends Resource
                             ->label('Tipo de votacion')
                             ->options([
                                 'nominal' => 'Nominal',
-                                'planilla' => 'Por planilla',
+                                'planilla' => 'Por plancha',
                             ])
                             ->required()
                             ->default('nominal')
@@ -77,7 +75,7 @@ class VotacionResource extends Resource
                             ->required()
                             ->default(1)
                             ->minValue(1)
-                            ->helperText('En nominal es la cantidad de cargos o cupos. En planilla se reparten por porcentaje.'),
+                            ->helperText('En nominal es la cantidad de cargos o cupos. En plancha se reparten por porcentaje.'),
                         Forms\Components\TextInput::make('max_selecciones')
                             ->label('Maximo de candidatos por voto')
                             ->numeric()
@@ -85,7 +83,7 @@ class VotacionResource extends Resource
                             ->default(1)
                             ->minValue(1)
                             ->visible(fn (Get $get): bool => $get('tipo_votacion') === 'nominal')
-                            ->helperText('Para votacion nominal. Si elige 3, cada aportante podra marcar hasta 3 candidatos.'),
+                            ->helperText('Para votacion nominal. Si elige 3, cada participante podra marcar hasta 3 opciones.'),
                         Forms\Components\DateTimePicker::make('fecha_inicio')
                             ->label('Fecha de inicio')
                             ->seconds(false),
@@ -124,27 +122,33 @@ class VotacionResource extends Resource
                             ])
                             ->columnSpanFull(),
                         Forms\Components\Placeholder::make('portal_url')
-                            ->label('URL del portal')
+                            ->label('URL del portal (Gral)')
                             ->content(fn (): string => url('/votaciones')),
+                        Forms\Components\Placeholder::make('monitor_url')
+                            ->label('URL de Monitoreo (TV)')
+                            ->content(fn (?Votacion $record): string => $record ? url("/votaciones/{$record->slug}/monitoreo") : 'Guarda primero para ver la URL')
+                            ->visible(fn (?Votacion $record) => filled($record)),
                     ])
-                    ->columns(1),
+                    ->columns(2),
 
                 Forms\Components\Section::make('Carga de opciones de voto')
                     ->schema([
                         Forms\Components\Placeholder::make('guia_carga_opciones')
-                            ->label('Donde se crean los candidatos o planillas')
+                            ->label('Carga de participantes')
                             ->content(function (?Votacion $record, Get $get): string {
                                 $tipo = $record?->tipo_votacion ?? $get('tipo_votacion') ?? 'nominal';
 
                                 if (!$record) {
                                     return $tipo === 'planilla'
-                                        ? 'Primero guarda la votacion. Despues entraras a editarla y al final veras la seccion "1. Crear planillas" y luego "2. Asignar candidatos".'
-                                        : 'Primero guarda la votacion. Despues entraras a editarla y al final veras la seccion "Candidatos para voto nominal" para cargar las personas que recibiran votos.';
+                                        ? 'Primero guarda la votación para poder crear las planchas e integrar a los asistentes.'
+                                        : 'Primero guarda la votación para poder crear los candidatos.';
                                 }
 
-                                return $tipo === 'planilla'
-                                    ? 'En esta pantalla, mas abajo, veras "1. Crear planillas" para crear cada planilla y luego "2. Asignar candidatos a planilla" para vincular las personas a la planilla correspondiente.'
-                                    : 'En esta pantalla, mas abajo, veras "Candidatos para voto nominal". Alli creas las personas que recibiran votos directamente.';
+                                if ($tipo === 'planilla') {
+                                    return 'Ve a la parte inferior para crear las planchas y asignar los integrantes a cada una.';
+                                }
+
+                                return 'Ve a la parte inferior para crear los candidatos individuales.';
                             }),
                     ])
                     ->columns(1)
@@ -163,7 +167,7 @@ class VotacionResource extends Resource
                     ->wrap(),
                 Tables\Columns\TextColumn::make('tipo_votacion')
                     ->label('Tipo')
-                    ->formatStateUsing(fn (string $state): string => $state === 'planilla' ? 'Planilla' : 'Nominal')
+                    ->formatStateUsing(fn (string $state): string => $state === 'planilla' ? 'Plancha' : 'Nominal')
                     ->badge()
                     ->color(fn (string $state): string => $state === 'planilla' ? 'warning' : 'primary'),
                 Tables\Columns\TextColumn::make('estado')
@@ -175,13 +179,14 @@ class VotacionResource extends Resource
                         default => 'warning',
                     }),
                 Tables\Columns\TextColumn::make('cupos')
-                    ->label('Cupos')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('candidatos_count')
-                    ->label('Candidatos')
+                    ->label('Cupos/Cargos')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('planillas_count')
-                    ->label('Planillas')
+                    ->label('Planchas')
+                    ->visible(fn (?Votacion $record) => $record?->tipo_votacion === 'planilla')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('candidatos_count')
+                    ->label('Integrantes/Cands')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('votos_emitidos_count')
                     ->label('Votos emitidos')
@@ -205,7 +210,7 @@ class VotacionResource extends Resource
                     ->label('Tipo')
                     ->options([
                         'nominal' => 'Nominal',
-                        'planilla' => 'Planilla',
+                        'planilla' => 'Plancha',
                     ]),
                 Tables\Filters\SelectFilter::make('estado')
                     ->label('Estado')
@@ -231,8 +236,6 @@ class VotacionResource extends Resource
     public static function getRelations(): array
     {
         return [
-            PlanillasRelationManager::class,
-            CandidatosRelationManager::class,
             VotosRelationManager::class,
         ];
     }

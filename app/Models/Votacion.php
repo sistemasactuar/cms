@@ -124,7 +124,7 @@ class Votacion extends Model
         return max(1, (int) ($this->max_selecciones ?: $this->cupos ?: 1));
     }
 
-    public function calcularDistribucionPlanillas(): array
+    public function calcularDistribucionPlanchas(): array
     {
         $planillas = $this->planillas()
             ->withCount([
@@ -182,20 +182,28 @@ class Votacion extends Model
                 ->values();
 
             for ($i = 0; $i < $faltantes; $i++) {
-                $planillaId = $ordenados[$i] ?? null;
+                $planchaId = $ordenados[$i] ?? null;
 
-                if ($planillaId === null) {
+                if ($planchaId === null) {
                     break;
                 }
 
-                $resultado[$planillaId]['cupos']++;
+                $resultado[$planchaId]['cupos']++;
             }
         }
 
-        foreach ($resultado as $planillaId => $item) {
-            unset($resultado[$planillaId]['residuo']);
+        foreach ($resultado as $planchaId => $item) {
+            unset($resultado[$planchaId]['residuo']);
         }
 
         return $resultado;
+    }
+
+    public function haAlcanzadoMaximoVotos(): bool
+    {
+        $votosEmitidos = $this->votos()->whereNotNull('voto_emitido_at')->count();
+        $participantesHabilitados = Aportante::where('activo', true)->count();
+        
+        return $votosEmitidos >= $participantesHabilitados;
     }
 }

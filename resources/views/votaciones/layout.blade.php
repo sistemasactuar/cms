@@ -301,7 +301,7 @@
                     <div class="flex flex-col justify-between gap-4 md:items-end">
                         @if(isset($aportante) && $aportante)
                             <div class="rounded-[24px] bg-white/12 px-5 py-4 text-left shadow-lg">
-                                <p class="text-xs font-semibold uppercase tracking-[.22em] text-orange-100">Aportante conectado</p>
+                                <p class="text-xs font-semibold uppercase tracking-[.22em] text-orange-100">Participante conectado</p>
                                 <p class="mt-2 text-lg font-bold">{{ $aportante->nombre }}</p>
                                 <p class="text-sm text-orange-50">Documento {{ $aportante->documento }}</p>
                             </div>
@@ -321,10 +321,11 @@
 
                 <div class="grid gap-3 border-t border-slate-100 bg-white/90 p-4 md:grid-cols-3 md:p-5">
                     @foreach($steps as $key => $label)
-                        <div class="step-pill {{ $currentStep === $key ? 'is-active' : '' }} rounded-[18px] px-4 py-3 text-sm font-semibold {{ $currentStep === $key ? '' : 'text-slate-500' }}">
+                        <div class="step-pill {{ $currentStep === $key ? 'is-active' : '' }} rounded-[18px] px-4 py-3 text-sm font-semibold {{ $currentStep === $key ? '' : 'text-slate-500' }}"
+                             style="{{ $currentStep === $key ? 'background: var(--brand-purple-900); color: white;' : 'background: #fff1de; color: var(--brand-purple-700);' }}">
                             <span
                                 class="mr-2 inline-grid h-7 w-7 place-items-center rounded-full"
-                                style="{{ $currentStep === $key ? 'background: var(--brand-purple-900); color: white;' : 'background: #fff1de; color: var(--brand-purple-700);' }}"
+                                style="{{ $currentStep === $key ? 'background: white; color: var(--brand-purple-900);' : 'background: #fff1de; color: var(--brand-purple-700);' }}"
                             >{{ $key }}</span>
                             {{ $label }}
                         </div>

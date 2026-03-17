@@ -14,10 +14,9 @@ class PlanillasRelationManager extends RelationManager
 {
     protected static string $relationship = 'planillas';
 
-    protected static ?string $title = '1. Crear planillas';
-    protected static ?string $modelLabel = 'Planilla';
-    protected static ?string $pluralModelLabel = 'Planillas';
-
+    protected static ?string $title = '1. Crear planchas';
+    protected static ?string $modelLabel = 'Plancha';
+    protected static ?string $pluralModelLabel = 'Planchas';
     public static function canViewForRecord($ownerRecord, string $pageClass): bool
     {
         return $ownerRecord instanceof Votacion && $ownerRecord->tipo_votacion === 'planilla';
@@ -63,7 +62,7 @@ class PlanillasRelationManager extends RelationManager
                     ->label('Nro')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nombre')
-                    ->label('Planilla')
+                    ->label('Plancha')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('candidatos_count')
@@ -85,9 +84,9 @@ class PlanillasRelationManager extends RelationManager
                         return number_format(($record->votos_emitidos_count / $total) * 100, 2, ',', '.') . ' %';
                     }),
                 Tables\Columns\TextColumn::make('cupos_asignados')
-                    ->label('Cupos')
+                    ->label('Cargos obtenidos')
                     ->state(function (VotacionPlanilla $record): int {
-                        $resultado = $this->getOwnerRecord()->calcularDistribucionPlanillas();
+                        $resultado = $this->getOwnerRecord()->calcularDistribucionPlanchas();
 
                         return (int) ($resultado[$record->id]['cupos'] ?? 0);
                     }),
@@ -97,8 +96,8 @@ class PlanillasRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make('createPlanilla')
-                    ->label('Agregar planilla')
-                    ->modalHeading('Crear planilla'),
+                    ->label('Agregar plancha')
+                    ->modalHeading('Crear plancha'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

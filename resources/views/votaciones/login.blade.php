@@ -1,5 +1,5 @@
 @extends('votaciones.layout', [
-    'title' => 'Ingreso de aportantes',
+    'title' => 'Ingreso de participantes',
     'subtitle' => 'Accede con tu documento y tu clave para revisar el orden del dia y votar sin perderte en el proceso.',
     'step' => 1,
 ])
@@ -13,17 +13,17 @@
                 <div class="rounded-[24px] bg-slate-50 p-5">
                     <p class="text-sm font-black uppercase tracking-[.2em] text-slate-400">Paso 1</p>
                     <h3 class="mt-2 text-lg font-bold text-slate-900">Ingresa</h3>
-                    <p class="mt-2 text-sm leading-7 text-slate-600">Usa tu documento y la clave asignada. Si es tu primera vez, la clave inicial es el mismo documento.</p>
+                    <p class="mt-2 text-sm leading-7 text-slate-600">Usa tu numero de documento. Por seguridad, la primera vez tu clave es el mismo documento.</p>
                 </div>
                 <div class="rounded-[24px] bg-slate-50 p-5">
                     <p class="text-sm font-black uppercase tracking-[.2em] text-slate-400">Paso 2</p>
                     <h3 class="mt-2 text-lg font-bold text-slate-900">Lee y acepta</h3>
-                    <p class="mt-2 text-sm leading-7 text-slate-600">Antes de votar veras el orden del dia y deberas marcar la aceptacion para continuar.</p>
+                    <p class="mt-2 text-sm leading-7 text-slate-600">Antes de votar, deberas leer y aceptar el orden del dia para continuar.</p>
                 </div>
                 <div class="rounded-[24px] bg-slate-50 p-5">
                     <p class="text-sm font-black uppercase tracking-[.2em] text-slate-400">Paso 3</p>
                     <h3 class="mt-2 text-lg font-bold text-slate-900">Vota</h3>
-                    <p class="mt-2 text-sm leading-7 text-slate-600">Entra, elige tu opcion y vota.</p>
+                    <p class="mt-2 text-sm leading-7 text-slate-600">Elige tu opcion preferida y registra tu voto de forma segura.</p>
                 </div>
             </div>
 
@@ -36,34 +36,34 @@
                     <span class="badge-soft green">{{ $votaciones->count() }} activas</span>
                 </div>
 
-                <div class="mt-5 space-y-4">
-                    @forelse ($votaciones as $votacion)
-                        <article class="rounded-[22px] border border-slate-200 bg-white p-5">
-                            <div class="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                    <h4 class="text-lg font-bold text-slate-900">{{ $votacion->titulo }}</h4>
-                                    <p class="mt-2 text-sm leading-7 text-slate-600">{{ $votacion->descripcion_publica ?: 'Votacion lista para participacion de aportantes.' }}</p>
-                                </div>
-                                <div class="space-y-2 text-right">
-                                    <span class="badge-soft {{ $votacion->tipo_votacion === 'planilla' ? 'orange' : 'blue' }}">
-                                        {{ $votacion->tipo_votacion === 'planilla' ? 'Planilla' : 'Nominal' }}
-                                    </span>
-                                    <p class="text-sm font-semibold text-slate-500">{{ $votacion->cupos }} cupo(s)</p>
-                                </div>
-                            </div>
-                            <div class="mt-4 flex flex-wrap gap-3 text-sm text-slate-500">
-                                <span>{{ $votacion->candidatos_count }} candidato(s)</span>
-                                <span>{{ $votacion->planillas_count }} planilla(s)</span>
-                                @if ($votacion->fecha_inicio)
-                                    <span>Inicia {{ $votacion->fecha_inicio->format('d/m/Y H:i') }}</span>
-                                @endif
-                            </div>
-                        </article>
-                    @empty
-                        <div class="rounded-[22px] border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-                            En este momento no hay votaciones publicadas para aportantes.
-                        </div>
-                    @endforelse
+                <div class="mt-8 grid gap-4 grid-cols-1 sm:grid-cols-3">
+                    <article class="rounded-[22px] border border-slate-200 bg-white p-5 text-center">
+                        <p class="text-xs font-bold uppercase tracking-[.1em] text-slate-400">Votaciones</p>
+                        <h4 class="mt-2 text-3xl font-black text-slate-900">{{ $stats['total_procesos'] }}</h4>
+                        <p class="mt-1 text-sm text-slate-600 font-medium">Activas hoy</p>
+                    </article>
+                    <article class="rounded-[22px] border border-slate-200 bg-white p-5 text-center">
+                        <p class="text-xs font-bold uppercase tracking-[.1em] text-slate-400">Participantes</p>
+                        <h4 class="mt-2 text-3xl font-black text-slate-900">{{ $stats['total_participantes'] }}</h4>
+                        <p class="mt-1 text-sm text-slate-600 font-medium">Habilitados</p>
+                    </article>
+                    <article class="rounded-[22px] border border-slate-200 bg-white p-5 text-center">
+                        <p class="text-xs font-bold uppercase tracking-[.1em] text-slate-400">Votos</p>
+                        <h4 class="mt-2 text-3xl font-black text-slate-900">{{ $stats['total_registrados'] }}</h4>
+                        <p class="mt-1 text-sm text-slate-600 font-medium">Procesados</p>
+                    </article>
+                </div>
+
+                <div class="mt-8 rounded-[22px] bg-slate-100 p-5">
+                    <p class="text-sm font-bold text-slate-900">Procesos en curso</p>
+                    <ul class="mt-3 space-y-2">
+                        @foreach ($votaciones as $v)
+                            <li class="flex items-center gap-3 text-sm text-slate-600">
+                                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                <span class="font-semibold text-slate-800">{{ $v->titulo }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
             </div>
         </section>
@@ -99,7 +99,7 @@
                 </label>
 
                 <div class="rounded-[20px] bg-amber-50 px-4 py-4 text-sm leading-7 text-amber-950">
-                    <strong>Recuerda:</strong> al crear un aportante, la clave inicial corresponde al mismo documento.
+                    <strong>Recuerda:</strong> Al ingresar, si es tu primera vez la clave inicial corresponde a tu mismo numero de documento.
                 </div>
 
                 <button class="primary-btn w-full px-6 text-lg">Ingresar al portal</button>

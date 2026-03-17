@@ -18,9 +18,9 @@ class CandidatosRelationManager extends RelationManager
 {
     protected static string $relationship = 'candidatos';
 
-    protected static ?string $title = '2. Asignar candidatos a planilla';
-    protected static ?string $modelLabel = 'Candidato';
-    protected static ?string $pluralModelLabel = 'Candidatos';
+    protected static ?string $title = '2. Asignar integrantes a planilla';
+    protected static ?string $modelLabel = 'Integrante';
+    protected static ?string $pluralModelLabel = 'Integrantes';
 
     public static function canViewForRecord($ownerRecord, string $pageClass): bool
     {
@@ -30,7 +30,7 @@ class CandidatosRelationManager extends RelationManager
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return $ownerRecord->tipo_votacion === 'planilla'
-            ? '2. Asignar candidatos a planilla'
+            ? '2. Asignar integrantes a la Plancha'
             : 'Candidatos para voto nominal';
     }
 
@@ -52,7 +52,7 @@ class CandidatosRelationManager extends RelationManager
                 ->searchable(['nombre', 'documento', 'correo'])
                 ->preload()
                 ->required()
-                ->helperText('Selecciona el aportante que sera candidato dentro de esta votacion.')
+                ->helperText('Selecciona el participante que sera integrante dentro de esta votacion.')
                 ->live()
                 ->afterStateHydrated(function ($state, Set $set, Get $get): void {
                     if (blank($state)) {
@@ -109,7 +109,7 @@ class CandidatosRelationManager extends RelationManager
                 ->preload()
                 ->required(fn (): bool => $ownerRecord->tipo_votacion === 'planilla')
                 ->helperText(fn (): ?string => $ownerRecord->tipo_votacion === 'planilla'
-                    ? 'Selecciona la planilla a la que pertenece este candidato.'
+                    ? 'Selecciona la plancha a la que pertenece este integrante.'
                     : null)
                 ->visible(fn (): bool => $ownerRecord->tipo_votacion === 'planilla'),
             Forms\Components\FileUpload::make('foto_path')
@@ -144,15 +144,15 @@ class CandidatosRelationManager extends RelationManager
                     ->label('Nro')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('nombre')
-                    ->label('Candidato')
+                    ->label('Nombre completo')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('cargo')
                     ->label('Cargo')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('planilla.nombre')
-                    ->label('Planilla')
-                    ->placeholder('Sin planilla'),
+                    ->label('Plancha')
+                    ->placeholder('Sin plancha'),
                 Tables\Columns\TextColumn::make('detalles_voto_count')
                     ->label('Votos'),
                 Tables\Columns\IconColumn::make('activo')
@@ -161,8 +161,8 @@ class CandidatosRelationManager extends RelationManager
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make('createCandidato')
-                    ->label('Agregar candidato')
-                    ->modalHeading('Crear candidato'),
+                    ->label('Agregar integrante')
+                    ->modalHeading('Crear integrante'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

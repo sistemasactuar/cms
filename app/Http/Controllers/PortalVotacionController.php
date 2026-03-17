@@ -24,13 +24,19 @@ class PortalVotacionController extends Controller
         $votaciones = Votacion::query()
             ->disponiblesPortal()
             ->withCount([
-                'candidatos',
-                'planillas',
+                'candidatos' => fn ($query) => $query->where('activo', true),
+                'planillas' => fn ($query) => $query->where('activo', true)->has('candidatos'),
                 'votos as votos_emitidos_count' => fn ($query) => $query->whereNotNull('voto_emitido_at'),
             ])
             ->get();
 
-        return view('votaciones.login', compact('votaciones'));
+        $stats = [
+            'total_procesos' => $votaciones->count(),
+            'total_participantes' => Aportante::where('activo', true)->count(),
+            'total_registrados' => VotacionVoto::whereNotNull('voto_emitido_at')->count(),
+        ];
+
+        return view('votaciones.login', compact('votaciones', 'stats'));
     }
 
     public function authenticate(Request $request): RedirectResponse
@@ -71,8 +77,8 @@ class PortalVotacionController extends Controller
         $votaciones = Votacion::query()
             ->disponiblesPortal()
             ->withCount([
-                'candidatos',
-                'planillas',
+                'candidatos' => fn ($query) => $query->where('activo', true),
+                'planillas' => fn ($query) => $query->where('activo', true)->has('candidatos'),
                 'votos as votos_emitidos_count' => fn ($query) => $query->whereNotNull('voto_emitido_at'),
             ])
             ->get();
@@ -84,7 +90,9 @@ class PortalVotacionController extends Controller
             ->get()
             ->keyBy('votacion_id');
 
-        return view('votaciones.dashboard', compact('aportante', 'votaciones', 'registros'));
+        $aceptoAgendaGlobal = $registros->contains(fn($r) => filled($r->acepto_orden_dia_at));
+
+        return view('votaciones.dashboard', compact('aportante', 'votaciones', 'registros', 'aceptoAgendaGlobal'));
     }
 
     public function agenda(Request $request, Votacion $votacion): View|RedirectResponse
@@ -126,17 +134,24 @@ class PortalVotacionController extends Controller
             'acepta_orden_dia.accepted' => 'Debes aceptar el orden del dia para continuar al voto.',
         ]);
 
-        $registro = $this->getOrCreateRegistro($votacion, $aportante);
+        // Aceptacion global para todas las votaciones vigentes
+        $now = now();
+        $votacionesIds = Votacion::disponiblesPortal()->pluck('id');
 
-        $registro->forceFill([
-            'acepto_orden_dia_at' => $registro->acepto_orden_dia_at ?: now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => (string) $request->userAgent(),
-        ])->save();
+        foreach ($votacionesIds as $id) {
+            VotacionVoto::updateOrCreate(
+                ['votacion_id' => $id, 'aportante_id' => $aportante->id],
+                [
+                    'acepto_orden_dia_at' => $now,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => (string) $request->userAgent(),
+                ]
+            );
+        }
 
         return redirect()
             ->route('votaciones.portal.vote.form', $votacion)
-            ->with('success', 'Orden del dia aceptado. Ahora puedes registrar tu voto.');
+            ->with('success', 'Orden del dia aceptado. Ahora puedes participar en las votaciones disponibles.');
     }
 
     public function voteForm(Request $request, Votacion $votacion): View|RedirectResponse
@@ -162,10 +177,17 @@ class PortalVotacionController extends Controller
 
         $votacion->load([
             'candidatos' => fn ($query) => $query->where('activo', true)->with('planilla'),
-            'planillas' => fn ($query) => $query->where('activo', true)->with([
-                'candidatos' => fn ($candidateQuery) => $candidateQuery->where('activo', true),
-            ]),
+            'planillas' => fn ($query) => $query->where('activo', true)
+                ->has('candidatos')
+                ->with([
+                    'candidatos' => fn ($candidateQuery) => $candidateQuery->where('activo', true),
+                ]),
         ]);
+
+        if ($votacion->estado === 'cerrada' || $votacion->haAlcanzadoMaximoVotos()) {
+            return redirect()->route('votaciones.portal.dashboard')
+                ->with('error', 'El proceso de votación ha concluido.');
+        }
 
         return view('votaciones.votar', compact('aportante', 'votacion', 'registro'));
     }
@@ -189,6 +211,11 @@ class PortalVotacionController extends Controller
 
         if ($votacion->aceptacion_obligatoria && !$registro->acepto_orden_dia_at) {
             return redirect()->route('votaciones.portal.agenda', $votacion);
+        }
+
+        if ($votacion->estado === 'cerrada' || $votacion->haAlcanzadoMaximoVotos()) {
+            return redirect()->route('votaciones.portal.dashboard')
+                ->with('error', 'El proceso de votación ha concluido.');
         }
 
         DB::transaction(function () use ($request, $votacion, $aportante, $registro): void {
@@ -271,6 +298,7 @@ class PortalVotacionController extends Controller
                 VotacionVotoDetalle::query()->insert($detalles);
             }
 
+            // Registrar el voto
             $freshRegistro->forceFill([
                 'aportante_id' => $aportante->id,
                 'acepto_orden_dia_at' => $freshRegistro->acepto_orden_dia_at ?: now(),
@@ -278,11 +306,54 @@ class PortalVotacionController extends Controller
                 'ip_address' => $request->ip(),
                 'user_agent' => (string) $request->userAgent(),
             ])->save();
+
+            // After saving the vote, check if the votation should be closed
+            if ($votacion->haAlcanzadoMaximoVotos()) {
+                $votacion->update(['estado' => 'cerrada']);
+            }
         });
 
         return redirect()
             ->route('votaciones.portal.dashboard')
             ->with('success', 'Tu voto fue registrado correctamente. Gracias por participar.');
+    }
+
+    public function resultados(Request $request, Votacion $votacion): View|RedirectResponse
+    {
+        /** @var Aportante $aportante */
+        $aportante = $request->attributes->get('aportante');
+
+        if (!$votacion->activo || !in_array($votacion->estado, ['publicada', 'cerrada'])) {
+            return redirect()
+                ->route('votaciones.portal.dashboard')
+                ->with('error', 'La votacion solicitada no se encuentra habilitada.');
+        }
+
+        $registro = $this->getOrCreateRegistro($votacion, $aportante);
+
+        if (!$registro->voto_emitido_at && $votacion->estado !== 'cerrada') {
+            return redirect()
+                ->route('votaciones.portal.dashboard')
+                ->with('error', 'Debes registrar tu voto antes de ver los resultados o esperar a que la votacion cierre.');
+        }
+
+        if ($votacion->tipo_votacion === 'planilla') {
+            $distribucion = $votacion->calcularDistribucionPlanchas();
+            $planillas = $votacion->planillas()->with('candidatos')->get();
+            $totalVotosValidos = $votacion->votos()->whereNotNull('voto_emitido_at')->count();
+            
+            return view('votaciones.resultados-plancha', compact('aportante', 'votacion', 'registro', 'planillas', 'distribucion', 'totalVotosValidos'));
+        } else {
+            $candidatos = $votacion->candidatos()
+                ->withCount('detallesVoto as total_votos')
+                ->orderByDesc('total_votos')
+                ->get();
+                
+            $totalVotosValidos = $candidatos->sum('total_votos');
+            $totalParticipantes = $votacion->votos()->whereNotNull('voto_emitido_at')->count();
+            
+            return view('votaciones.resultados-nominal', compact('aportante', 'votacion', 'registro', 'candidatos', 'totalVotosValidos', 'totalParticipantes'));
+        }
     }
 
     public function logout(Request $request): RedirectResponse
@@ -294,6 +365,42 @@ class PortalVotacionController extends Controller
         return redirect()
             ->route('votaciones.portal.login')
             ->with('success', 'Sesion cerrada correctamente.');
+    }
+
+    public function monitor(Votacion $votacion): View
+    {
+        // El acceso al monitor es publico para proyeccion
+        if ($votacion->tipo_votacion === 'planilla') {
+            $distribucion = $votacion->calcularDistribucionPlanchas();
+            
+            // Obtenemos las planillas y las ordenamos según los votos en la distribución
+            $planillas = $votacion->planillas()
+                ->where('activo', true)
+                ->has('candidatos')
+                ->with('candidatos')
+                ->get()
+                ->sortByDesc(fn($p) => $distribucion[$p->id]['votos'] ?? 0)
+                ->values();
+
+            $totalVotosValidos = $votacion->votos()->whereNotNull('voto_emitido_at')->count();
+            $totalDelegadosHabilitados = Aportante::where('activo', true)->count();
+            $isClosed = $votacion->estado === 'cerrada' || $votacion->haAlcanzadoMaximoVotos();
+
+            return view('votaciones.monitor-plancha', compact('votacion', 'planillas', 'distribucion', 'totalVotosValidos', 'totalDelegadosHabilitados', 'isClosed'));
+        } else {
+            $candidatos = $votacion->candidatos()
+                ->where('activo', true)
+                ->withCount('detallesVoto as total_votos')
+                ->orderByDesc('total_votos')
+                ->get();
+
+            $totalVotosValidos = $candidatos->sum('total_votos');
+            $totalParticipantes = $votacion->votos()->whereNotNull('voto_emitido_at')->count();
+            $totalDelegadosHabilitados = Aportante::where('activo', true)->count();
+            $isClosed = $votacion->estado === 'cerrada' || $votacion->haAlcanzadoMaximoVotos();
+
+            return view('votaciones.monitor-nominal', compact('votacion', 'candidatos', 'totalVotosValidos', 'totalParticipantes', 'totalDelegadosHabilitados', 'isClosed'));
+        }
     }
 
     private function getOrCreateRegistro(Votacion $votacion, Aportante $aportante): VotacionVoto
