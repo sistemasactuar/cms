@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\VotacionResource\RelationManagers;
 
+use App\Models\Aportante;
 use App\Models\VotacionVoto;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,6 +20,19 @@ class VotosRelationManager extends RelationManager
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['aportante', 'planilla', 'detalles.candidato']))
             ->columns([
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Estado')
+                    ->badge()
+                    ->state(function (VotacionVoto $record): string {
+                        if ($record->voto_emitido_at) return 'Voto';
+                        if ($record->acepto_orden_dia_at) return 'Orden aceptado';
+                        return 'Pendiente';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Voto' => 'success',
+                        'Orden aceptado' => 'warning',
+                        'Pendiente' => 'danger',
+                    }),
                 Tables\Columns\TextColumn::make('aportante.nombre')
                     ->label('Aportante')
                     ->searchable(),
@@ -49,7 +64,49 @@ class VotosRelationManager extends RelationManager
                     ->label('IP')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->headerActions([])
+            ->filters([
+                Tables\Filters\TernaryFilter::make('voto_emitido_at')
+                    ->label('Filtrar por votación')
+                    ->placeholder('Todos')
+                    ->trueLabel('Ya votaron')
+                    ->falseLabel('Faltan por votar')
+                    ->nullable(),
+                Tables\Filters\TernaryFilter::make('acepto_orden_dia_at')
+                    ->label('Filtrar por orden del día')
+                    ->placeholder('Todos')
+                    ->trueLabel('Aceptaron')
+                    ->falseLabel('No han aceptado')
+                    ->nullable(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('sync_participantes')
+                    ->label('Cargar Todos los Pendientes')
+                    ->icon('heroicon-o-users')
+                    ->color('info')
+                    ->action(function (RelationManager $livewire) {
+                        $record = $livewire->getOwnerRecord();
+                        $participantes = Aportante::where('activo', true)->get();
+                        $registrados = 0;
+                        
+                        foreach ($participantes as $participante) {
+                            $voto = VotacionVoto::firstOrCreate([
+                                'votacion_id' => $record->id,
+                                'aportante_id' => $participante->id,
+                            ]);
+                            if ($voto->wasRecentlyCreated) $registrados++;
+                        }
+                        
+                        Notification::make()
+                            ->title('Sincronización completa')
+                            ->body("Se han habilitado {$registrados} nuevos participantes para esta votación.")
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Cargar a todos los aportantes habilitados?')
+                    ->modalDescription('Esto creará un registro para cada aportante activo para que puedas ver quién no ha votado aún.')
+                    ->modalSubmitActionLabel('Cargar ahora'),
+            ])
             ->actions([])
             ->bulkActions([]);
     }

@@ -35,6 +35,17 @@
                 </div>
                 <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mt-1">{{ $votacion->titulo }}</h1>
             </div>
+            
+            <!-- QR Code Section -->
+            <div class="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 ml-8">
+                <div class="bg-white p-2 rounded-xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-16 h-16">
+                </div>
+                <div class="max-w-[120px]">
+                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest leading-tight">Escanea para Votar</p>
+                    <p class="text-[8px] text-slate-400 font-medium mt-1 leading-tight">Accede directamente al portal de votación</p>
+                </div>
+            </div>
         </div>
         <div class="text-right">
             @php

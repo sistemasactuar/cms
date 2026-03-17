@@ -4,11 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\VotacionResource\Pages;
 use App\Filament\Resources\VotacionResource\RelationManagers\VotosRelationManager;
+use App\Models\Aportante;
 use App\Models\Votacion;
+use App\Models\VotacionVoto;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -223,6 +226,33 @@ class VotacionResource extends Resource
                     ->label('Activo'),
             ])
             ->actions([
+                Tables\Actions\Action::make('sync_participantes')
+                    ->label('Sincronizar Participantes')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->action(function (Votacion $record) {
+                        $participantes = Aportante::where('activo', true)->get();
+                        $registrados = 0;
+                        
+                        foreach ($participantes as $participante) {
+                            $voto = VotacionVoto::firstOrCreate([
+                                'votacion_id' => $record->id,
+                                'aportante_id' => $participante->id,
+                            ]);
+                            if ($voto->wasRecentlyCreated) $registrados++;
+                        }
+                        
+                        Notification::make()
+                            ->title('Sincronización completa')
+                            ->body("Se han habilitado {$registrados} nuevos participantes para esta votación.")
+                            ->success()
+                            ->send();
+                    })
+                    ->confirm()
+                    ->requiresConfirmation()
+                    ->modalHeading('¿Sincronizar todos los participantes?')
+                    ->modalDescription('Esto buscará a todos los aportantes activos en el sistema y los habilitará para esta votación, permitiendo ver quiénes faltan por votar en el reporte.')
+                    ->modalSubmitActionLabel('Sincronizar ahora'),
                 Tables\Actions\Action::make('portal')
                     ->label('Portal')
                     ->icon('heroicon-o-arrow-top-right-on-square')
