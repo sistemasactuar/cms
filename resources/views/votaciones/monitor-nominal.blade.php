@@ -32,14 +32,14 @@
                 </div>
                 <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mt-1">{{ $votacion->titulo }}</h1>
             </div>
-            <!-- QR Code Section -->
-            <div class="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 ml-8">
-                <div class="bg-white p-2 rounded-xl">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-16 h-16">
+            
+            <div class="flex items-center gap-6 bg-white/10 p-5 rounded-[40px] border border-white/20 ml-12 shadow-2xl">
+                <div class="bg-white p-3 rounded-3xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-28 h-28 md:w-32 md:h-32 shadow-inner">
                 </div>
-                <div class="max-w-[120px]">
-                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest leading-tight">Escanea para Votar</p>
-                    <p class="text-[8px] text-slate-400 mt-1 font-medium leading-tight">Acceso directo al portal de votación</p>
+                <div class="max-w-[150px]">
+                    <p class="text-[12px] text-emerald-400 font-extrabold uppercase tracking-[0.2em] leading-tight">ESCANEA PARA VOTAR</p>
+                    <p class="text-[10px] text-slate-300 font-medium mt-2 leading-tight">Ahorra tiempo y entra directamente desde tu celular</p>
                 </div>
             </div>
         </div>
@@ -51,7 +51,7 @@
         <div class="flex gap-12 text-right">
             <div>
                 <p class="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{{ $porcentajeParticipacion }}%</p>
-                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Participacion</p>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Participación</p>
             </div>
             <div>
                 <p class="text-5xl md:text-6xl font-black text-indigo-400 leading-none">{{ $totalParticipantes }}</p>
@@ -98,10 +98,10 @@
 
     <footer class="mt-8 flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-widest border-t border-white/5 pt-6">
         <div>
-            Ultima actualizacion: {{ now()->format('H:i:s') }}
+            Ultima actualización: {{ now()->format('H:i:s') }}
         </div>
         <div>
-            Sistema de Votaciones Actuar &bull; Monitor de Proyeccion
+            Sistema de Votaciones Actuar &bull; Monitor de Proyección
         </div>
     </footer>
 </body>

@@ -15,10 +15,29 @@
         .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); }
         @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .live-indicator { animation: pulse-slow 2s infinite; }
-        .winner-card { border: 3px solid #10b981 !important; box-shadow: 0 0 40px rgba(16, 185, 129, 0.3); position: relative; }
-        .winner-badge { position: absolute; top: -18px; right: 40px; background: #10b981; color: white; padding: 6px 20px; border-radius: 999px; font-weight: 900; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 10; }
-        @keyframes pulse-winner { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-        .winner-animate { animation: pulse-winner 2s infinite ease-in-out; }
+        
+        /* Winner Highlighting */
+        .winner-card {
+            border: 3px solid #10b981 !important;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.3) !important;
+            transform: scale(1.02);
+            position: relative;
+        }
+        .winner-badge {
+            position: absolute;
+            top: -15px;
+            right: 20px;
+            background: #10b981;
+            color: white;
+            padding: 4px 15px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            z-index: 50;
+        }
     </style>
 </head>
 <body class="grid-bg min-h-screen p-6 md:p-12 flex flex-col">
@@ -36,14 +55,13 @@
                 <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mt-1">{{ $votacion->titulo }}</h1>
             </div>
             
-            <!-- QR Code Section -->
-            <div class="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 ml-8">
-                <div class="bg-white p-2 rounded-xl">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-16 h-16">
+            <div class="flex items-center gap-6 bg-white/10 p-5 rounded-[40px] border border-white/20 ml-12 shadow-2xl">
+                <div class="bg-white p-3 rounded-3xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-28 h-28 md:w-32 md:h-32 shadow-inner">
                 </div>
-                <div class="max-w-[120px]">
-                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest leading-tight">Escanea para Votar</p>
-                    <p class="text-[8px] text-slate-400 font-medium mt-1 leading-tight">Accede directamente al portal de votación</p>
+                <div class="max-w-[150px]">
+                    <p class="text-[12px] text-emerald-400 font-extrabold uppercase tracking-[0.2em] leading-tight">ESCANEA PARA VOTAR</p>
+                    <p class="text-[10px] text-slate-300 font-medium mt-2 leading-tight">Ahorra tiempo y entra directamente desde tu celular</p>
                 </div>
             </div>
         </div>
@@ -54,96 +72,106 @@
             <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Participación General</p>
             <div class="flex items-center justify-end gap-6 mt-1">
                 <div class="text-right">
-                    <p class="text-3xl md:text-4xl font-bold text-emerald-400">{{ $porcentajeParticipacion }}%</p>
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Participación</p>
+                    <p class="text-3xl md:text-4xl font-bold text-emerald-400 leading-none">{{ $porcentajeParticipacion }}%</p>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Participación</p>
                 </div>
                 <div class="h-12 w-px bg-white/10 mx-2"></div>
                 <div class="text-right">
-                    <p class="text-5xl md:text-6xl font-black text-indigo-400">{{ $totalVotosValidos }}</p>
-                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Votos emitidos</p>
+                    <p class="text-5xl md:text-6xl font-black text-indigo-400 leading-none">{{ $totalVotosValidos }}</p>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2">Votos emitidos</p>
                 </div>
             </div>
         </div>
     </header>
 
-    <main id="monitor-main" class="flex-1 overflow-y-auto relative scroll-smooth pr-2">
-        <div id="scroll-container" class="grid gap-12 md:grid-cols-2 lg:grid-cols-3 transition-all duration-1000 ease-in-out pt-12">
+    <div class="flex-1 relative overflow-hidden flex flex-col pt-12">
+        <div id="scroll-container" class="flex-1 grid gap-12 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 overflow-y-auto pr-2 pb-12 transition-all duration-500">
             @foreach ($planillas as $planilla)
                 @php
                     $datos = $distribucion[$planilla->id] ?? ['votos' => 0, 'porcentaje' => 0, 'cupos' => 0];
-                    $isWinner = $loop->first && $datos['votos'] > 0;
+                    $esGanador = ($loop->first && $datos['votos'] > 0);
                 @endphp
-                <div class="glass-card rounded-[40px] p-8 flex flex-col justify-between transition-all hover:scale-[1.02] {{ $isWinner ? 'winner-card winner-animate' : '' }}">
-                    @if ($isWinner)
-                        <div class="winner-badge">Tendencia Ganadora</div>
+                <div class="glass-card rounded-[40px] p-8 flex flex-col justify-between transition-all hover:scale-[1.02] {{ $esGanador ? 'winner-card' : '' }}">
+                    @if($esGanador)
+                        <div class="winner-badge">GANADOR</div>
                     @endif
-                    <div>
-                        <div class="flex items-center justify-between mb-6">
-                            <span class="px-4 py-2 rounded-full bg-slate-800 text-slate-300 text-sm font-bold">Lista #{{ $planilla->numero }}</span>
-                            <span class="px-5 py-2 rounded-full bg-indigo-500/20 text-indigo-300 text-lg font-black border border-indigo-500/30">
-                                {{ $datos['cupos'] }} Delegados asignados
-                            </span>
+
+                    <div class="flex items-start gap-5">
+                        <div class="h-20 w-20 rounded-3xl bg-white p-3 flex-shrink-0 shadow-lg flex items-center justify-center overflow-hidden">
+                            @if ($planilla->logo_path)
+                                <img src="{{ Storage::disk('public')->url($planilla->logo_path) }}" alt="Logo" class="max-h-full max-w-full">
+                            @else
+                                <span class="text-2xl font-black text-slate-800">#{{ $planilla->numero }}</span>
+                            @endif
                         </div>
-                        <h2 class="text-3xl font-extrabold leading-tight mb-2">{{ $planilla->nombre }}</h2>
-                        <div class="h-1 w-24 rounded-full" style="background: {{ $planilla->color ?: '#6366f1' }}"></div>
+                        <div>
+                            <span class="px-3 py-1 rounded-full bg-white/5 text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-2 inline-block">Plancha #{{ $planilla->numero }}</span>
+                            <h3 class="text-2xl font-black leading-tight">{{ $planilla->nombre }}</h3>
+                        </div>
                     </div>
 
-                    <div class="mt-12">
-                        <div class="flex items-end justify-between mb-4">
+                    <div class="mt-8 pt-6 border-t border-white/5">
+                        <div class="flex items-end justify-between mb-3">
                             <div>
-                                <p class="text-slate-500 font-bold uppercase text-xs tracking-widest mb-1">Votacion Alcanzada</p>
-                                <p class="text-5xl font-black">{{ $datos['votos'] }}</p>
+                                <p class="text-sm text-slate-500 font-bold uppercase tracking-widest mb-1">Resultado Actual</p>
+                                <p class="text-5xl font-black text-white leading-none">{{ $datos['votos'] }} <span class="text-xs text-slate-500 font-normal uppercase tracking-widest ml-1">votos</span></p>
                             </div>
-                            <p class="text-3xl font-bold text-slate-400">{{ $datos['porcentaje'] }}%</p>
+                            <div class="text-right">
+                                <p class="text-2xl font-black text-indigo-400 leading-none">{{ $datos['porcentaje'] }}%</p>
+                            </div>
                         </div>
-                        <div class="w-full bg-slate-800/50 rounded-full h-8 overflow-hidden border border-white/5">
-                            <div class="h-full rounded-full transition-all duration-1000 ease-out" 
-                                 style="width: {{ $datos['porcentaje'] }}%; background: linear-gradient(90deg, {{ $planilla->color ?: '#6366f1' }}, #818cf8);">
-                            </div>
+                        
+                        <div class="mt-6 flex items-center justify-between p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                            <p class="text-[10px] text-emerald-400 font-extrabold uppercase tracking-widest">Delegados asignados</p>
+                            <p class="text-3xl font-black text-emerald-400 leading-none">{{ $datos['cupos'] }}</p>
                         </div>
                     </div>
                 </div>
             @endforeach
         </div>
-    </main>
 
-    @if ($isClosed)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md">
-            <div class="text-center p-12 glass-card rounded-[50px] border-emerald-500/50">
-                <div class="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
-                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                </div>
-                <h2 class="text-6xl font-black mb-4 tracking-tighter uppercase">Votación Cerrada</h2>
-                <p class="text-slate-400 text-xl font-medium max-w-md mx-auto">El proceso ha concluido satisfactoriamente. Los resultados mostrados son finales.</p>
+        @if($isClosed)
+        <div class="absolute inset-x-0 bottom-12 flex justify-center z-50 pointer-events-none">
+            <div class="bg-red-500 text-white px-12 py-4 rounded-full text-4xl font-black uppercase tracking-[0.2em] shadow-2xl animate-bounce border-4 border-white/20">
+                VOTACIÓN CERRADA
             </div>
         </div>
-    @endif
+        @endif
+    </div>
 
-    <footer class="mt-8 flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-widest border-t border-white/5 pt-6">
-        <div>
-            Ultima actualizacion: {{ now()->format('H:i:s') }}
+    <footer class="mt-8 flex items-center justify-between text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] border-t border-white/5 pt-6">
+        <div class="flex items-center gap-4">
+            <span class="inline-block w-2 h-2 rounded-full bg-slate-700"></span>
+            Ultima actualización: {{ now()->format('H:i:s') }}
         </div>
         <div>
-            Sistema de Votaciones Actuar &bull; Monitor de Proyeccion
+            Sistema de Votaciones Actuar &bull; Monitor de Proyección
         </div>
     </footer>
+
     <script>
-        // Auto-scroll logic for many planillas
-        document.addEventListener('DOMContentLoaded', () => {
-            const container = document.getElementById('monitor-main');
-            const content = document.getElementById('scroll-container');
+        const container = document.getElementById('scroll-container');
+        let scrollAmount = 0;
+        let direction = 1;
+        
+        function autoScroll() {
+            if (!container) return;
             
-            if (content.scrollHeight > container.clientHeight) {
-                let scrollPos = 0;
-                setInterval(() => {
-                    scrollPos += 1;
-                    if (scrollPos > content.scrollHeight - container.clientHeight) {
-                        scrollPos = -100; // Pause at top
-                    }
-                    container.scrollTop = scrollPos < 0 ? 0 : scrollPos;
-                }, 50);
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            
+            if (maxScroll <= 0) return;
+
+            scrollAmount += 0.5 * direction;
+            container.scrollTop = scrollAmount;
+
+            if (scrollAmount >= maxScroll) {
+                setTimeout(() => { direction = -1; }, 2000);
+            } else if (scrollAmount <= 0) {
+                setTimeout(() => { direction = 1; }, 2000);
             }
-        });
+        }
+
+        setInterval(autoScroll, 50);
     </script>
 </body>
 </html>
