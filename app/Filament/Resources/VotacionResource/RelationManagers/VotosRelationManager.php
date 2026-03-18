@@ -79,6 +79,25 @@ class VotosRelationManager extends RelationManager
                     ->nullable(),
             ])
             ->headerActions([
+                Tables\Actions\Action::make('export_agenda')
+                    ->label('Descargar Excel (Aceptación)')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->action(function (RelationManager $livewire) {
+                        $votacion = $livewire->getOwnerRecord();
+                        $votos = $votacion->votos()->with('aportante')->get();
+                        
+                        $csvData = "Documento;Nombre;Aceptacion Orden Dia At\n";
+                        foreach ($votos as $voto) {
+                            $fecha = $voto->acepto_orden_dia_at ? $voto->acepto_orden_dia_at->format('d/m/Y H:i') : 'Pendiente';
+                            $csvData .= "{$voto->aportante->documento};{$voto->aportante->nombre};{$fecha}\n";
+                        }
+                        
+                        return response()->streamDownload(function () use ($csvData) {
+                            echo "\xEF\xBB\xBF"; // UTF-8 BOM
+                            echo $csvData;
+                        }, "aceptacion_orden_dia_{$votacion->slug}.csv");
+                    }),
                 Tables\Actions\Action::make('sync_participantes')
                     ->label('Cargar Todos los Pendientes')
                     ->icon('heroicon-o-users')

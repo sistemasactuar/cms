@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor - {{ $votacion->titulo }}</title>
-    <meta http-equiv="refresh" content="30">
+    <meta http-equiv="refresh" content="5">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +20,7 @@
 </head>
 <body class="grid-bg min-h-screen p-6 md:p-12 flex flex-col">
 
-    <header class="flex items-center justify-between mb-8">
+    <header class="flex items-center justify-between mb-8 gap-8">
         <div class="flex items-center gap-6">
             <div class="bg-white p-3 rounded-2xl shadow-xl overflow-hidden h-24 w-24 flex items-center justify-center">
                 <img src="{{ $votacion->logo_url }}" alt="Logo" class="max-h-full max-w-full">
@@ -32,10 +32,31 @@
                 </div>
                 <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mt-1">{{ $votacion->titulo }}</h1>
             </div>
+            <!-- QR Code Section -->
+            <div class="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 ml-8">
+                <div class="bg-white p-2 rounded-xl">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ urlencode(route('votaciones.portal.login')) }}" alt="QR Votar" class="w-16 h-16">
+                </div>
+                <div class="max-w-[120px]">
+                    <p class="text-[10px] text-emerald-400 font-black uppercase tracking-widest leading-tight">Escanea para Votar</p>
+                    <p class="text-[8px] text-slate-400 mt-1 font-medium leading-tight">Acceso directo al portal de votación</p>
+                </div>
+            </div>
         </div>
-        <div class="text-right">
-            <p class="text-slate-400 text-sm font-bold uppercase tracking-widest">Participacion General</p>
-            <p class="text-5xl md:text-6xl font-black text-indigo-400 mt-1">{{ $totalParticipantes }} <span class="text-xl text-slate-500 font-normal">votos emitidos</span></p>
+
+        @php
+            $porcentajeParticipacion = $totalDelegadosHabilitados > 0 ? round(($totalParticipantes / $totalDelegadosHabilitados) * 100, 2) : 0;
+        @endphp
+
+        <div class="flex gap-12 text-right">
+            <div>
+                <p class="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{{ $porcentajeParticipacion }}%</p>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Participacion</p>
+            </div>
+            <div>
+                <p class="text-5xl md:text-6xl font-black text-indigo-400 leading-none">{{ $totalParticipantes }}</p>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Votos emitidos</p>
+            </div>
         </div>
     </header>
 

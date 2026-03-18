@@ -204,6 +204,9 @@ class VotacionResource extends Resource
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->placeholder('Sin definir'),
+                Tables\Columns\TextColumn::make('orden_dia_aprobado_count')
+                    ->label('Orden Día Aprobados')
+                    ->sortable(),
                 Tables\Columns\IconColumn::make('activo')
                     ->label('Activo')
                     ->boolean(),
@@ -285,6 +288,7 @@ class VotacionResource extends Resource
                 'candidatos',
                 'planillas',
                 'votos as votos_emitidos_count' => fn (Builder $query) => $query->whereNotNull('voto_emitido_at'),
+                'votos as orden_dia_aprobado_count' => fn (Builder $query) => $query->whereNotNull('acepto_orden_dia_at'),
             ]);
     }
 }
