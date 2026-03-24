@@ -11,12 +11,18 @@ class PlanoSaldoValorCardImageService
 {
     private const FALLBACK_WIDTH = 1667;
     private const FALLBACK_HEIGHT = 833;
+    private const CREDIT_MAX_WIDTH = 760;
+    private const DATE_MAX_WIDTH = 260;
+    private const AMOUNT_MAX_WIDTH = 620;
 
     public function generate(PlanoSaldoValor $record): string
     {
         $image = $this->createBaseCanvas();
+        imagealphablending($image, true);
+        imagesavealpha($image, true);
 
         $white = imagecolorallocate($image, 255, 255, 255);
+        $shadow = imagecolorallocatealpha($image, 8, 25, 63, 45);
 
         $credito = trim((string) $record->obligacion);
         $fechaPago = $this->formatFechaPago($record->fecha_vigencia);
@@ -29,31 +35,40 @@ class PlanoSaldoValorCardImageService
         $this->drawText(
             $image,
             $credito !== '' ? $credito : 'N/A',
-            52,
-            450,
-            145,
+            74,
+            448,
+            162,
             $white,
             $fontBold,
+            self::CREDIT_MAX_WIDTH,
+            $shadow,
+            4,
         );
 
         $this->drawText(
             $image,
             $fechaPago,
-            40,
+            48,
             640,
-            260,
+            254,
             $white,
-            $fontBold,
+            $fontRegular ?? $fontBold,
+            self::DATE_MAX_WIDTH,
+            $shadow,
+            3,
         );
 
         $this->drawText(
             $image,
             $valorCuota,
-            54,
+            78,
             500,
-            365,
+            382,
             $white,
             $fontBold,
+            self::AMOUNT_MAX_WIDTH,
+            $shadow,
+            4,
         );
 
         ob_start();
@@ -102,15 +117,40 @@ class PlanoSaldoValorCardImageService
         int $x,
         int $y,
         int $color,
-        ?string $fontPath
+        ?string $fontPath,
+        ?int $maxWidth = null,
+        ?int $shadowColor = null,
+        int $shadowOffset = 0
     ): void {
-        if ($fontPath && is_file($fontPath)) {
-            imagettftext($image, $size, 0, $x, $y, $color, $fontPath, $text);
+        $text = trim($text);
+
+        if ($text === '') {
+            return;
+        }
+
+        if ($fontPath && is_file($fontPath) && function_exists('imagettftext')) {
+            $fitSize = $this->fitTextSize($text, $size, $fontPath, $maxWidth);
+
+            if ($shadowColor !== null && $shadowOffset > 0) {
+                imagettftext($image, $fitSize, 0, $x + $shadowOffset, $y + $shadowOffset, $shadowColor, $fontPath, $text);
+            }
+
+            imagettftext($image, $fitSize, 0, $x, $y, $color, $fontPath, $text);
 
             return;
         }
 
-        imagestring($image, 5, $x, max(0, $y - 18), $text, $color);
+        $this->drawScaledBitmapText(
+            $image,
+            $text,
+            $size,
+            $x,
+            $y,
+            $color,
+            $maxWidth,
+            $shadowColor,
+            $shadowOffset,
+        );
     }
 
     private function formatFechaPago(mixed $fechaPago): string
@@ -137,6 +177,8 @@ class PlanoSaldoValorCardImageService
                 public_path('fonts/arialbd.ttf'),
                 resource_path('fonts/arialbd.ttf'),
                 'C:\\Windows\\Fonts\\arialbd.ttf',
+                'C:\\Windows\\Fonts\\segoeuib.ttf',
+                'C:\\Windows\\Fonts\\calibrib.ttf',
                 '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
                 '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
             ]
@@ -144,6 +186,8 @@ class PlanoSaldoValorCardImageService
                 public_path('fonts/arial.ttf'),
                 resource_path('fonts/arial.ttf'),
                 'C:\\Windows\\Fonts\\arial.ttf',
+                'C:\\Windows\\Fonts\\segoeui.ttf',
+                'C:\\Windows\\Fonts\\calibri.ttf',
                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
                 '/usr/share/fonts/dejavu/DejaVuSans.ttf',
             ];
@@ -155,5 +199,84 @@ class PlanoSaldoValorCardImageService
         }
 
         return null;
+    }
+
+    private function fitTextSize(string $text, int $preferredSize, string $fontPath, ?int $maxWidth): int
+    {
+        if ($maxWidth === null || $maxWidth <= 0) {
+            return $preferredSize;
+        }
+
+        $size = $preferredSize;
+
+        while ($size > 20) {
+            $box = imagettfbbox($size, 0, $fontPath, $text);
+
+            if ($box === false) {
+                return $preferredSize;
+            }
+
+            $width = (int) abs($box[2] - $box[0]);
+
+            if ($width <= $maxWidth) {
+                return $size;
+            }
+
+            $size -= 2;
+        }
+
+        return max(20, $size);
+    }
+
+    private function drawScaledBitmapText(
+        $image,
+        string $text,
+        int $size,
+        int $x,
+        int $y,
+        int $color,
+        ?int $maxWidth = null,
+        ?int $shadowColor = null,
+        int $shadowOffset = 0
+    ): void {
+        $font = 5;
+        $baseWidth = max(1, imagefontwidth($font) * strlen($text));
+        $baseHeight = imagefontheight($font);
+        $scale = max(1, (int) round($size / max(1, $baseHeight)));
+
+        if ($maxWidth !== null && $maxWidth > 0) {
+            $scale = min($scale, max(1, (int) floor($maxWidth / $baseWidth)));
+        }
+
+        $tmpWidth = $baseWidth + ($shadowColor !== null ? $shadowOffset : 0) + 2;
+        $tmpHeight = $baseHeight + ($shadowColor !== null ? $shadowOffset : 0) + 2;
+        $tmp = imagecreatetruecolor($tmpWidth, $tmpHeight);
+
+        imagealphablending($tmp, false);
+        imagesavealpha($tmp, true);
+
+        $transparent = imagecolorallocatealpha($tmp, 0, 0, 0, 127);
+        imagefill($tmp, 0, 0, $transparent);
+
+        if ($shadowColor !== null && $shadowOffset > 0) {
+            imagestring($tmp, $font, $shadowOffset, 1, $text, $shadowColor);
+        }
+
+        imagestring($tmp, $font, 0, 0, $text, $color);
+
+        imagecopyresampled(
+            $image,
+            $tmp,
+            $x,
+            max(0, $y - ($baseHeight * $scale)),
+            0,
+            0,
+            $tmpWidth * $scale,
+            $tmpHeight * $scale,
+            $tmpWidth,
+            $tmpHeight
+        );
+
+        imagedestroy($tmp);
     }
 }
