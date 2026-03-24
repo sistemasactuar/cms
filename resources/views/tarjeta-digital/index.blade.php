@@ -55,22 +55,6 @@
                     @enderror
                 </label>
 
-                <label class="block">
-                    <span class="mb-2 block text-sm font-semibold text-slate-700">Valor de tu cuota</span>
-                    <input
-                        type="text"
-                        name="valor_cuota"
-                        value="{{ old('valor_cuota') }}"
-                        inputmode="decimal"
-                        autocomplete="off"
-                        placeholder="Ej. 185000"
-                        class="field-shell w-full rounded-[18px] px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-                    >
-                    @error('valor_cuota')
-                        <span class="mt-2 block text-sm text-rose-600">{{ $message }}</span>
-                    @enderror
-                </label>
-
                 <button type="submit" class="primary-btn w-full px-6 text-base">
                     Buscar mi tarjeta
                 </button>
@@ -87,7 +71,7 @@
                     <div class="rounded-[24px] bg-slate-50 px-5 py-4">
                         <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ten a la mano</span>
                         <p class="mt-2 text-sm leading-6 text-slate-700">
-                            Tu documento, el numero del credito y el valor de la cuota.
+                            Tu documento y el numero del credito.
                         </p>
                     </div>
 

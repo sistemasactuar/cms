@@ -65,7 +65,6 @@ class PortalTarjetaDigitalTest extends TestCase
         $this->post('/tarjeta-digital/validar', [
             'documento' => '123456789',
             'credito' => '100200300',
-            'valor_cuota' => '185000',
         ])->assertRedirect(route('tarjeta-digital.portal.show'));
 
         $this->get('/tarjeta-digital/descarga')
@@ -97,8 +96,7 @@ class PortalTarjetaDigitalTest extends TestCase
         $this->from('/tarjeta-digital')
             ->post('/tarjeta-digital/validar', [
                 'documento' => '987654321',
-                'credito' => '200300400',
-                'valor_cuota' => '110000',
+                'credito' => '999999999',
             ])
             ->assertRedirect('/tarjeta-digital')
             ->assertSessionHasErrors('documento');

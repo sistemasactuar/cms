@@ -34,11 +34,9 @@ class PortalTarjetaDigitalController extends Controller
         $validator = Validator::make($request->all(), [
             'documento' => ['required', 'string', 'max:40'],
             'credito' => ['required', 'string', 'max:40'],
-            'valor_cuota' => ['required', 'string', 'max:40'],
         ], [
             'documento.required' => 'Ingresa tu documento para continuar.',
             'credito.required' => 'Ingresa tu numero de credito.',
-            'valor_cuota.required' => 'Ingresa el valor de tu cuota.',
         ]);
 
         if ($validator->fails()) {
@@ -50,18 +48,17 @@ class PortalTarjetaDigitalController extends Controller
         $data = $validator->validated();
         $documento = $this->normalizeKey($data['documento']);
         $credito = $this->normalizeKey($data['credito']);
-        $valorCuotaIngresado = $this->normalizeMoney($data['valor_cuota']);
 
         $record = PlanoSaldoValor::query()
             ->where('cc', $documento)
             ->where('obligacion', $credito)
             ->first();
 
-        if ($record === null || $this->normalizeMoney($this->resolveValidationAmount($record)) !== $valorCuotaIngresado) {
+        if ($record === null) {
             $this->hitRateLimit($request);
 
             throw ValidationException::withMessages([
-                'documento' => 'No pudimos validar la informacion ingresada. Revisa tu documento, numero de credito y valor de la cuota.',
+                'documento' => 'No pudimos encontrar una tarjeta con la informacion ingresada. Revisa tu documento y numero de credito.',
             ]);
         }
 
@@ -202,48 +199,5 @@ class PortalTarjetaDigitalController extends Controller
         }
 
         return str_replace(' ', '', $key);
-    }
-
-    private function normalizeMoney(mixed $value): float
-    {
-        $number = trim((string) $value);
-
-        if ($number === '') {
-            return 0;
-        }
-
-        $number = str_replace(['$', ' '], '', $number);
-        $number = preg_replace('/[^0-9,\.\-]/', '', $number);
-
-        if ($number === '' || $number === '-' || $number === '.' || $number === ',') {
-            return 0;
-        }
-
-        if (str_contains($number, ',') && str_contains($number, '.')) {
-            if (strrpos($number, ',') > strrpos($number, '.')) {
-                $number = str_replace('.', '', $number);
-                $number = str_replace(',', '.', $number);
-            } else {
-                $number = str_replace(',', '', $number);
-            }
-        } elseif (str_contains($number, ',')) {
-            $number = str_replace('.', '', $number);
-            $number = str_replace(',', '.', $number);
-        } elseif (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $number) === 1) {
-            $number = str_replace('.', '', $number);
-        }
-
-        return round((float) $number, 2);
-    }
-
-    private function resolveValidationAmount(PlanoSaldoValor $record): float
-    {
-        $valorCuota = (float) ($record->valor_cuota ?? 0);
-
-        if ($valorCuota > 0) {
-            return $valorCuota;
-        }
-
-        return (float) ($record->valor_reportar ?? 0);
     }
 }
