@@ -120,18 +120,19 @@ class PlanoSaldoValorResource extends Resource
                     ->label('Importar Plano')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->form([
-                        Forms\Components\FileUpload::make('archivo_quincenal')
-                            ->label('Archivo base quincenal/mensual (.csv)')
+                        Forms\Components\FileUpload::make('archivo_cartera')
+                            ->label('Archivo de cartera (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('Opcional. Puede ser archivo quincenal o mensual.')
-                            ->required(false),
-                        Forms\Components\FileUpload::make('archivo_diario')
-                            ->label('Archivo diario pagos (.csv)')
+                            ->helperText('De este archivo se toma el valor de la cuota.')
+                            ->required(),
+                        Forms\Components\FileUpload::make('archivo_saldos')
+                            ->label('Archivo de saldos Aicoll (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
+                            ->helperText('De este archivo se toman el valor vencido y el saldo capital.')
                             ->required(),
                         Forms\Components\DatePicker::make('fecha_archivo')
                             ->label('Fecha Vigencia Plano')
@@ -139,13 +140,10 @@ class PlanoSaldoValorResource extends Resource
                             ->default(now()),
                     ])
                     ->action(function (array $data) {
-                        $quincenalPath = null;
-                        if (!empty($data['archivo_quincenal'])) {
-                            $quincenalPath = Storage::disk('public')->path($data['archivo_quincenal']);
-                        }
-                        $diarioPath = Storage::disk('public')->path($data['archivo_diario']);
+                        $carteraPath = Storage::disk('public')->path($data['archivo_cartera']);
+                        $saldosPath = Storage::disk('public')->path($data['archivo_saldos']);
 
-                        if (($quincenalPath !== null && !file_exists($quincenalPath)) || !file_exists($diarioPath)) {
+                        if (!file_exists($carteraPath) || !file_exists($saldosPath)) {
                             Notification::make()
                                 ->title('Error')
                                 ->body('Uno o ambos archivos no fueron encontrados.')
@@ -156,8 +154,8 @@ class PlanoSaldoValorResource extends Resource
 
                         try {
                             $resultado = app(PlanoSaldoValorImportService::class)->import(
-                                $quincenalPath,
-                                $diarioPath,
+                                $carteraPath,
+                                $saldosPath,
                                 $data['fecha_archivo'],
                             );
                         } catch (\Throwable $exception) {
@@ -173,12 +171,12 @@ class PlanoSaldoValorResource extends Resource
                         $creados = (int) ($resultado['creados'] ?? 0);
                         $actualizados = (int) ($resultado['actualizados'] ?? 0);
                         $ignoradosIguales = (int) ($resultado['ignorados_iguales'] ?? 0);
-                        $sinCoincidencia = (int) ($resultado['sin_coincidencia_diario'] ?? 0);
+                        $sinCoincidencia = (int) ($resultado['sin_coincidencia_saldos'] ?? 0);
                         $zipPath = $resultado['zip_path'] ?? null;
 
                         Notification::make()
                             ->title('Proceso completado')
-                            ->body("Procesados: {$procesados}. Nuevos: {$creados}. Actualizados: {$actualizados}. Ignorados iguales: {$ignoradosIguales}. Sin cruce diario: {$sinCoincidencia}.")
+                            ->body("Procesados: {$procesados}. Nuevos: {$creados}. Actualizados: {$actualizados}. Ignorados iguales: {$ignoradosIguales}. Sin cruce con saldos: {$sinCoincidencia}.")
                             ->success()
                             ->send();
 

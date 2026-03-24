@@ -5,6 +5,7 @@ use Illuminate\Http\Request; //
 use App\Models\EvaluacionProveedor;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PortalMediaController;
+use App\Http\Controllers\PortalTarjetaDigitalController;
 use App\Http\Controllers\PortalVotacionController;
 use App\Http\Controllers\WelcomeController;
 
@@ -130,6 +131,21 @@ Route::get('/portal-media/{path}', [PortalMediaController::class, 'show'])
     ->where('path', '.*')
     ->name('portal.media');
 
+Route::get('/tarjeta-digital', [PortalTarjetaDigitalController::class, 'landing'])
+    ->name('tarjeta-digital.portal.index');
+
+Route::post('/tarjeta-digital/validar', [PortalTarjetaDigitalController::class, 'validateAccess'])
+    ->name('tarjeta-digital.portal.validate');
+
+Route::get('/tarjeta-digital/descarga', [PortalTarjetaDigitalController::class, 'accessPage'])
+    ->name('tarjeta-digital.portal.show');
+
+Route::get('/tarjeta-digital/descargar', [PortalTarjetaDigitalController::class, 'downloadCard'])
+    ->name('tarjeta-digital.portal.download');
+
+Route::post('/tarjeta-digital/salir', [PortalTarjetaDigitalController::class, 'clearAccess'])
+    ->name('tarjeta-digital.portal.logout');
+
 Route::middleware('aportante.auth')->group(function (): void {
     Route::get('/votaciones/panel', [PortalVotacionController::class, 'dashboard'])
         ->name('votaciones.portal.dashboard');
@@ -155,4 +171,3 @@ Route::middleware('aportante.auth')->group(function (): void {
 
 Route::get('/votaciones/{votacion}/monitoreo', [PortalVotacionController::class, 'monitor'])
     ->name('votaciones.portal.monitor');
-

@@ -22,4 +22,11 @@ class PlanoSaldoValor extends Model
         'dias_mora',
         'fecha_vigencia',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'fecha_vigencia' => 'date',
+        ];
+    }
 }

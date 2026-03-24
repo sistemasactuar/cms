@@ -10,18 +10,18 @@ use ZipArchive;
 
 class PlanoSaldoValorImportService
 {
-    public function import(?string $quincenalPath, string $diarioPath, mixed $fechaArchivo): array
+    public function import(string $carteraPath, string $saldosPath, mixed $fechaArchivo): array
     {
-        $usarArchivoBase = is_string($quincenalPath) && trim($quincenalPath) !== '';
-        if ($usarArchivoBase && !is_file($quincenalPath)) {
-            throw new RuntimeException('No se encontro el archivo base (quincenal/mensual).');
+        if (!is_file($carteraPath)) {
+            throw new RuntimeException('No se encontro el archivo de cartera.');
         }
 
-        if (!is_file($diarioPath)) {
-            throw new RuntimeException('No se encontro el archivo diario.');
+        if (!is_file($saldosPath)) {
+            throw new RuntimeException('No se encontro el archivo de saldos Aicoll.');
         }
 
-        [$diarioByCredito, $diarioByDocumento, $registrosDiario] = $this->indexDiario($diarioPath);
+        $carteraRows = $this->readCsvAssoc($carteraPath);
+        [$saldosByCredito, $saldosByDocumento, $saldosRows, $registrosSaldos] = $this->indexRows($saldosPath);
 
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
         $periodo = $fechaVigencia->format('Ym');
@@ -34,135 +34,84 @@ class PlanoSaldoValorImportService
         $creados = 0;
         $actualizados = 0;
         $ignoradosIguales = 0;
-        $sinCoincidenciaDiario = 0;
+        $sinCoincidenciaSaldos = 0;
+        $matchedSaldosRowIds = [];
 
-        $sourceRows = $usarArchivoBase
-            ? $this->readCsvAssoc($quincenalPath)
-            : $this->readCsvAssoc($diarioPath);
-
-        foreach ($sourceRows as $row) {
-            $obligacion = $this->normalizeKey($row['NUMERO_CREDITO'] ?? '');
-            $cc = $this->normalizeKey($row['NUMERO_DOCUMENTO'] ?? '');
-
-            if ($obligacion === '' && $cc === '') {
-                continue;
-            }
-
-            $diarioRow = [];
-            if ($usarArchivoBase) {
-                if ($obligacion !== '' && isset($diarioByCredito[$obligacion])) {
-                    $diarioRow = $diarioByCredito[$obligacion];
-                } elseif ($cc !== '' && isset($diarioByDocumento[$cc])) {
-                    $diarioRow = $diarioByDocumento[$cc];
-                } else {
-                    $sinCoincidenciaDiario++;
-                }
-            } else {
-                $diarioRow = $row;
-            }
-
-            $valorCuota = $this->toFloat($row['VALOR_CUOTA'] ?? $diarioRow['VALOR_CUOTA'] ?? 0);
-            $diasMora = (int) round($this->toFloat($diarioRow['DIAS_MORA'] ?? $row['DIAS_MORA'] ?? 0));
-            $saldoCapital = $this->toFloat($diarioRow['SALDO_CAPITAL'] ?? $row['SALDO_CAPITAL'] ?? 0);
-            $totalVencido = $this->toFloat($diarioRow['TOTAL_VENCIDO'] ?? $row['TOTAL_VENCIDO'] ?? 0);
-            $fechaCuota = $this->parseDate($diarioRow['FECHA_CUOTA'] ?? $row['FECHA_CUOTA'] ?? null);
-
-            if ($saldoCapital <= 0) {
-                continue;
-            }
-
-            [$valorReportar, $observacion] = $this->calcularValorReportar(
-                $diasMora,
-                $valorCuota,
-                $totalVencido,
-                $fechaCuota,
+        foreach ($carteraRows as $carteraRow) {
+            $saldosRow = $this->findMatchingRow(
+                $carteraRow,
+                $saldosByCredito,
+                $saldosByDocumento,
             );
 
-            if ($valorReportar <= 0 && $totalVencido <= 0 && $valorCuota <= 0) {
+            if ($saldosRow === null) {
+                $sinCoincidenciaSaldos++;
+            } else {
+                $matchedSaldosRowIds[$saldosRow['__row_id']] = true;
+            }
+
+            $resultadoFila = $this->processRow(
+                $carteraRow,
+                $saldosRow,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $fechaVigencia,
+            );
+
+            if ($resultadoFila === null) {
                 continue;
             }
 
-            $nombres = trim((string) ($row['NOMBRES'] ?? ''));
-            $apellidos = trim((string) ($row['APELLIDOS'] ?? ''));
-
-            if ($nombres === '') {
-                $nombres = 'EMPRESA';
-            }
-
-            if ($apellidos === '') {
-                $apellidos = 'EMPRESA';
-            }
-
-            $modalidad = trim((string) ($row['MODALIDAD'] ?? $row['DETALLE_MODALIDAD'] ?? ''));
-            $obligacion = $obligacion !== '' ? $obligacion : $this->normalizeKey($diarioRow['NUMERO_CREDITO'] ?? '');
-            $cc = $cc !== '' ? $cc : $this->normalizeKey($diarioRow['NUMERO_DOCUMENTO'] ?? '');
-
-            if ($obligacion === '' || $cc === '') {
-                continue;
-            }
-
-            $payload = [
-                'nombres' => $nombres,
-                'apellidos' => $apellidos,
-                'valor_reportar' => $valorReportar,
-                'valor_cuota' => $valorCuota,
-                'modalidad' => $modalidad,
-                'periodo' => $periodo,
-                'observacion' => $observacion,
-                'saldo_capital' => $saldoCapital,
-                'dias_mora' => $diasMora,
-                'fecha_vigencia' => $fechaVigencia->toDateString(),
-            ];
-
-            $record = PlanoSaldoValor::firstOrNew(['cc' => $cc, 'obligacion' => $obligacion]);
-            $alreadyExists = $record->exists;
-
-            if ($alreadyExists && $this->isSameAsStored($record, $payload)) {
+            if ($resultadoFila['status'] === 'ignored') {
                 $ignoradosIguales++;
                 continue;
             }
 
-            $record->fill($payload);
-            $record->save();
-
-            if ($alreadyExists) {
-                $actualizados++;
-            } else {
+            if ($resultadoFila['status'] === 'created') {
                 $creados++;
+            } else {
+                $actualizados++;
             }
 
-            $valorReportarEntero = (int) round($valorReportar);
-            $nombreCompleto = trim($nombres . ' ' . $apellidos);
-            $rowKey = $cc . '|' . $obligacion;
+            $rowKey = $resultadoFila['row_key'];
+            $datosRe[$rowKey] = $resultadoFila['datos_re'];
+            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
+            $procesados = $creados + $actualizados;
+        }
 
-            $datosRe[$rowKey] = [
-                'ID_ENTIDAD' => 9,
-                'ID_SUCURSAL' => 1,
-                'A_OBLIGA' => $obligacion,
-                'NOMBRE_CLIENTE' => $nombres,
-                'APELLIDO_CLIENTE' => $apellidos,
-                'GRADO' => ' ',
-                'V_CUOTA' => $valorReportarEntero,
-                'RECARGO' => ' ',
-                'PERIODO' => $periodo,
-                'DIA_CORTE' => ' ',
-                'TIPO_PAGO' => 3,
-                'C.C' => $cc,
-                'observacion' => $observacion,
-            ];
+        foreach ($saldosRows as $saldosRow) {
+            if (isset($matchedSaldosRowIds[$saldosRow['__row_id']])) {
+                continue;
+            }
 
-            $datosGou[$rowKey] = [
-                'obligacion' => $obligacion,
-                'cc' => $cc,
-                'cc1' => $cc,
-                'nombres' => $nombreCompleto,
-                'valor_reportar' => $valorReportarEntero,
-                'periodo' => $fechaConvArchivo,
-                'valor_recargo' => '00000',
-                'periodofin' => $periodoFin,
-                'tipo_pago' => 0,
-            ];
+            $resultadoFila = $this->processRow(
+                null,
+                $saldosRow,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $fechaVigencia,
+            );
 
+            if ($resultadoFila === null) {
+                continue;
+            }
+
+            if ($resultadoFila['status'] === 'ignored') {
+                $ignoradosIguales++;
+                continue;
+            }
+
+            if ($resultadoFila['status'] === 'created') {
+                $creados++;
+            } else {
+                $actualizados++;
+            }
+
+            $rowKey = $resultadoFila['row_key'];
+            $datosRe[$rowKey] = $resultadoFila['datos_re'];
+            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
             $procesados = $creados + $actualizados;
         }
 
@@ -177,23 +126,124 @@ class PlanoSaldoValorImportService
             'creados' => $creados,
             'actualizados' => $actualizados,
             'ignorados_iguales' => $ignoradosIguales,
-            'registros_diario' => $registrosDiario,
-            'sin_coincidencia_diario' => $sinCoincidenciaDiario,
+            'registros_saldos' => $registrosSaldos,
+            'sin_coincidencia_saldos' => $sinCoincidenciaSaldos,
             'zip_path' => $zipPath,
         ];
     }
 
-    private function indexDiario(string $path): array
+    private function processRow(
+        ?array $carteraRow,
+        ?array $saldosRow,
+        string $periodo,
+        string $fechaConvArchivo,
+        string $periodoFin,
+        Carbon $fechaVigencia
+    ): ?array {
+        $obligacion = $this->extractObligacion($carteraRow, $saldosRow);
+        $cc = $this->extractDocumento($carteraRow, $saldosRow);
+
+        if ($obligacion === '' || $cc === '') {
+            return null;
+        }
+
+        $valorCuota = $this->extractValorCuota($carteraRow);
+        $valorVencido = $this->extractValorVencido($saldosRow);
+        $saldoCapital = $this->extractSaldoCapital($saldosRow, $carteraRow);
+
+        if ($saldoCapital <= 0) {
+            return null;
+        }
+
+        [$valorReportar, $observacion] = $this->calcularValorReportar(
+            $valorCuota,
+            $valorVencido,
+        );
+
+        if ($valorReportar <= 0) {
+            return null;
+        }
+
+        [$nombres, $apellidos] = $this->extractNombrePartes($carteraRow, $saldosRow);
+        $modalidad = $this->extractModalidad($carteraRow, $saldosRow);
+        $diasMora = $this->extractDiasMora($saldosRow, $carteraRow);
+
+        $payload = [
+            'nombres' => $nombres,
+            'apellidos' => $apellidos,
+            'valor_reportar' => $valorReportar,
+            'valor_cuota' => $valorCuota,
+            'modalidad' => $modalidad,
+            'periodo' => $periodo,
+            'observacion' => $observacion,
+            'saldo_capital' => $saldoCapital,
+            'dias_mora' => $diasMora,
+            'fecha_vigencia' => $fechaVigencia->toDateString(),
+        ];
+
+        $record = PlanoSaldoValor::firstOrNew(['cc' => $cc, 'obligacion' => $obligacion]);
+        $alreadyExists = $record->exists;
+
+        if ($alreadyExists && $this->isSameAsStored($record, $payload)) {
+            return [
+                'status' => 'ignored',
+                'row_key' => $cc . '|' . $obligacion,
+            ];
+        }
+
+        $record->fill($payload);
+        $record->save();
+
+        $valorReportarEntero = (int) round($valorReportar);
+        $rowKey = $cc . '|' . $obligacion;
+        $nombreCompleto = trim($nombres . ' ' . $apellidos);
+
+        return [
+            'status' => $alreadyExists ? 'updated' : 'created',
+            'row_key' => $rowKey,
+            'datos_re' => [
+                'ID_ENTIDAD' => 9,
+                'ID_SUCURSAL' => 1,
+                'A_OBLIGA' => $obligacion,
+                'NOMBRE_CLIENTE' => $nombres,
+                'APELLIDO_CLIENTE' => $apellidos,
+                'GRADO' => ' ',
+                'V_CUOTA' => $valorReportarEntero,
+                'RECARGO' => ' ',
+                'PERIODO' => $periodo,
+                'DIA_CORTE' => ' ',
+                'TIPO_PAGO' => 3,
+                'C.C' => $cc,
+                'observacion' => $observacion,
+            ],
+            'datos_gou' => [
+                'obligacion' => $obligacion,
+                'cc' => $cc,
+                'cc1' => $cc,
+                'nombres' => $nombreCompleto,
+                'valor_reportar' => $valorReportarEntero,
+                'periodo' => $fechaConvArchivo,
+                'valor_recargo' => '00000',
+                'periodofin' => $periodoFin,
+                'tipo_pago' => 0,
+            ],
+        ];
+    }
+
+    private function indexRows(string $path): array
     {
         $byCredito = [];
         $byDocumento = [];
+        $rows = [];
         $count = 0;
 
         foreach ($this->readCsvAssoc($path) as $row) {
+            $row['__row_id'] = $count;
             $count++;
+            $rows[] = $row;
 
-            $credito = $this->normalizeKey($row['NUMERO_CREDITO'] ?? '');
-            $documento = $this->normalizeKey($row['NUMERO_DOCUMENTO'] ?? '');
+            $credito = $this->extractObligacion($row);
+            $documento = $this->extractDocumento($row);
 
             if ($credito !== '') {
                 $byCredito[$credito] = $row;
@@ -204,7 +254,26 @@ class PlanoSaldoValorImportService
             }
         }
 
-        return [$byCredito, $byDocumento, $count];
+        return [$byCredito, $byDocumento, $rows, $count];
+    }
+
+    private function findMatchingRow(
+        array $referenceRow,
+        array $rowsByCredito,
+        array $rowsByDocumento
+    ): ?array {
+        $credito = $this->extractObligacion($referenceRow);
+        $documento = $this->extractDocumento($referenceRow);
+
+        if ($credito !== '' && isset($rowsByCredito[$credito])) {
+            return $rowsByCredito[$credito];
+        }
+
+        if ($documento !== '' && isset($rowsByDocumento[$documento])) {
+            return $rowsByDocumento[$documento];
+        }
+
+        return null;
     }
 
     private function createZip(array $datosRe, array $datosGou, string $fechaConvArchivo): string
@@ -262,43 +331,13 @@ class PlanoSaldoValorImportService
         return $zipPath;
     }
 
-    private function calcularValorReportar(
-        int $diasMora,
-        float $valorCuota,
-        float $totalVencido,
-        ?Carbon $fechaCuota
-    ): array {
-        $valorReportar = 0;
-        $observacion = '';
-
-        if ($diasMora <= 0) {
-            $valorReportar = $valorCuota;
-            $observacion = 'Valores 0';
-        } elseif ($diasMora < 30) {
-            $diaCuota = $fechaCuota?->day;
-            $diaActual = now()->day;
-
-            if ($diaCuota !== null && $diaCuota <= $diaActual) {
-                $valorReportar = $valorCuota;
-                $observacion = 'Vencido <30 con dias';
-            } else {
-                if ($totalVencido < $valorCuota) {
-                    $valorReportar = $valorCuota + $totalVencido;
-                } else {
-                    $valorReportar = $totalVencido;
-                }
-                $observacion = 'Vencido <30';
-            }
-        } else {
-            $valorReportar = $totalVencido;
-            $observacion = 'Vencido > 29';
+    private function calcularValorReportar(float $valorCuota, float $valorVencido): array
+    {
+        if ($valorVencido > $valorCuota) {
+            return [round($valorVencido, 2), 'Valor vencido'];
         }
 
-        if ($valorReportar <= 0) {
-            $valorReportar = max($totalVencido, $valorCuota);
-        }
-
-        return [round($valorReportar, 2), $observacion];
+        return [round($valorCuota, 2), 'Valor cuota'];
     }
 
     private function readCsvAssoc(string $path): \Generator
@@ -508,5 +547,139 @@ class PlanoSaldoValorImportService
         }
 
         return true;
+    }
+
+    private function extractObligacion(?array ...$rows): string
+    {
+        return $this->normalizeKey($this->pickValue($rows, [
+            'NUMERO_CREDITO',
+            'NO_OBLIGACION',
+            'A_OBLIGA',
+            'OBLIGACION',
+        ]));
+    }
+
+    private function extractDocumento(?array ...$rows): string
+    {
+        return $this->normalizeKey($this->pickValue($rows, [
+            'NUMERO_DOCUMENTO',
+            'ID_CLIENTE',
+            'CC',
+            'C.C',
+            'DOCUMENTO',
+        ]));
+    }
+
+    private function extractValorCuota(?array $carteraRow): float
+    {
+        return $this->toFloat($this->pickValue([$carteraRow], [
+            'VALOR_CUOTA',
+            'VLR_CUOTA',
+            'V_CUOTA',
+        ]));
+    }
+
+    private function extractValorVencido(?array $saldosRow): float
+    {
+        return $this->toFloat($this->pickValue([$saldosRow], [
+            'TOTAL_VENCIDO',
+            'VALOR_VENCIDO',
+            'VENC_CAPITAL',
+            'VENCIDO_CAPITAL',
+        ]));
+    }
+
+    private function extractSaldoCapital(?array ...$rows): float
+    {
+        return $this->toFloat($this->pickValue($rows, [
+            'SALDO_CAPITAL',
+            'SLD_CAPITAL',
+        ]));
+    }
+
+    private function extractDiasMora(?array ...$rows): int
+    {
+        return (int) round($this->toFloat($this->pickValue($rows, [
+            'DIAS_MORA',
+            'DIAS_VENCIDOS',
+            'DIAS_VENCIDOS_CAPITAL',
+        ])));
+    }
+
+    private function extractModalidad(?array ...$rows): string
+    {
+        return trim((string) $this->pickValue($rows, [
+            'MODALIDAD',
+            'DETALLE_MODALIDAD',
+        ]));
+    }
+
+    private function extractNombrePartes(?array ...$rows): array
+    {
+        $nombres = trim((string) $this->pickValue($rows, [
+            'NOMBRES',
+            'NOMBRE_CLIENTE',
+        ]));
+        $apellidos = trim((string) $this->pickValue($rows, [
+            'APELLIDOS',
+            'APELLIDO_CLIENTE',
+        ]));
+
+        if ($nombres === '' && $apellidos === '') {
+            $nombreCompleto = trim((string) $this->pickValue($rows, [
+                'NOMBRE',
+                'NOMBRE_COMPLETO',
+            ]));
+
+            if ($nombreCompleto !== '') {
+                $partes = preg_split('/\s+/', $nombreCompleto) ?: [];
+
+                if (count($partes) >= 2) {
+                    $apellidos = implode(' ', array_slice($partes, -2));
+                    $nombres = implode(' ', array_slice($partes, 0, -2));
+                } else {
+                    $nombres = $nombreCompleto;
+                }
+            }
+        }
+
+        if ($nombres === '') {
+            $nombres = 'EMPRESA';
+        }
+
+        if ($apellidos === '') {
+            $apellidos = 'EMPRESA';
+        }
+
+        return [$nombres, $apellidos];
+    }
+
+    private function pickValue(array $rows, array $keys): mixed
+    {
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            foreach ($keys as $key) {
+                if (!array_key_exists($key, $row)) {
+                    continue;
+                }
+
+                $value = $row[$key];
+
+                if ($value === null) {
+                    continue;
+                }
+
+                if (is_string($value) && trim($value) === '') {
+                    continue;
+                }
+
+                return $value;
+            }
+        }
+
+        return null;
     }
 }
