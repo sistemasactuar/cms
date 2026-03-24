@@ -34,11 +34,11 @@ class PortalTarjetaDigitalController extends Controller
         $validator = Validator::make($request->all(), [
             'documento' => ['required', 'string', 'max:40'],
             'credito' => ['required', 'string', 'max:40'],
-            'fecha_vigencia' => ['required', 'date'],
+            'valor_cuota' => ['required', 'string', 'max:40'],
         ], [
             'documento.required' => 'Ingresa tu documento para continuar.',
             'credito.required' => 'Ingresa tu numero de credito.',
-            'fecha_vigencia.required' => 'Ingresa la fecha de pago de la tarjeta.',
+            'valor_cuota.required' => 'Ingresa el valor de tu cuota.',
         ]);
 
         if ($validator->fails()) {
@@ -50,19 +50,18 @@ class PortalTarjetaDigitalController extends Controller
         $data = $validator->validated();
         $documento = $this->normalizeKey($data['documento']);
         $credito = $this->normalizeKey($data['credito']);
-        $fechaVigencia = Carbon::parse($data['fecha_vigencia'])->toDateString();
+        $valorCuotaIngresado = $this->normalizeMoney($data['valor_cuota']);
 
         $record = PlanoSaldoValor::query()
             ->where('cc', $documento)
             ->where('obligacion', $credito)
-            ->whereDate('fecha_vigencia', $fechaVigencia)
             ->first();
 
-        if ($record === null) {
+        if ($record === null || $this->normalizeMoney($this->resolveValidationAmount($record)) !== $valorCuotaIngresado) {
             $this->hitRateLimit($request);
 
             throw ValidationException::withMessages([
-                'documento' => 'No encontramos una tarjeta con los datos ingresados. Verifica documento, credito y fecha de pago.',
+                'documento' => 'No pudimos validar la informacion ingresada. Revisa tu documento, numero de credito y valor de la cuota.',
             ]);
         }
 
@@ -75,7 +74,7 @@ class PortalTarjetaDigitalController extends Controller
 
         return redirect()
             ->route('tarjeta-digital.portal.show')
-            ->with('success', 'Validacion correcta. Ya puedes descargar tu tarjeta digital.');
+            ->with('success', 'Listo. Tu tarjeta ya esta disponible para descarga.');
     }
 
     public function accessPage(Request $request): View|RedirectResponse
@@ -85,7 +84,7 @@ class PortalTarjetaDigitalController extends Controller
         if ($record === null) {
             return redirect()
                 ->route('tarjeta-digital.portal.index')
-                ->with('error', 'Tu acceso ya vencio o no has validado los datos de la tarjeta.');
+                ->with('error', 'Tu consulta ya vencio o aun no has encontrado una tarjeta.');
         }
 
         return view('tarjeta-digital.show', [
@@ -101,7 +100,7 @@ class PortalTarjetaDigitalController extends Controller
         if ($record === null) {
             return redirect()
                 ->route('tarjeta-digital.portal.index')
-                ->with('error', 'Tu acceso ya vencio. Valida de nuevo tus datos para descargar la tarjeta.');
+                ->with('error', 'Tu consulta ya vencio. Vuelve a ingresar los datos para descargar la tarjeta.');
         }
 
         $png = app(PlanoSaldoValorCardImageService::class)->generate($record);
@@ -125,7 +124,7 @@ class PortalTarjetaDigitalController extends Controller
 
         return redirect()
             ->route('tarjeta-digital.portal.index')
-            ->with('success', 'Puedes consultar otra tarjeta cuando quieras.');
+            ->with('success', 'Puedes hacer otra consulta cuando quieras.');
     }
 
     private function getAuthorizedRecord(Request $request): ?PlanoSaldoValor
@@ -203,5 +202,48 @@ class PortalTarjetaDigitalController extends Controller
         }
 
         return str_replace(' ', '', $key);
+    }
+
+    private function normalizeMoney(mixed $value): float
+    {
+        $number = trim((string) $value);
+
+        if ($number === '') {
+            return 0;
+        }
+
+        $number = str_replace(['$', ' '], '', $number);
+        $number = preg_replace('/[^0-9,\.\-]/', '', $number);
+
+        if ($number === '' || $number === '-' || $number === '.' || $number === ',') {
+            return 0;
+        }
+
+        if (str_contains($number, ',') && str_contains($number, '.')) {
+            if (strrpos($number, ',') > strrpos($number, '.')) {
+                $number = str_replace('.', '', $number);
+                $number = str_replace(',', '.', $number);
+            } else {
+                $number = str_replace(',', '', $number);
+            }
+        } elseif (str_contains($number, ',')) {
+            $number = str_replace('.', '', $number);
+            $number = str_replace(',', '.', $number);
+        } elseif (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $number) === 1) {
+            $number = str_replace('.', '', $number);
+        }
+
+        return round((float) $number, 2);
+    }
+
+    private function resolveValidationAmount(PlanoSaldoValor $record): float
+    {
+        $valorCuota = (float) ($record->valor_cuota ?? 0);
+
+        if ($valorCuota > 0) {
+            return $valorCuota;
+        }
+
+        return (float) ($record->valor_reportar ?? 0);
     }
 }

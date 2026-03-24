@@ -109,10 +109,10 @@
                         Portal Clientes
                     </span>
                     <h1 class="mt-4 text-3xl font-extrabold tracking-[-0.04em] md:text-5xl">
-                        Descarga tu tarjeta digital
+                        Consulta y descarga tu tarjeta digital
                     </h1>
                     <p class="mt-3 max-w-2xl text-sm leading-6 text-white/80 md:text-base">
-                        Valida tres datos del credito, habilita un acceso temporal y descarga la tarjeta lista para compartir o guardar.
+                        Escribe la informacion de tu credito y descarga tu tarjeta en este mismo portal.
                     </p>
                 </div>
 

@@ -14,7 +14,7 @@
     <div class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section class="glass-card rounded-[30px] p-6 md:p-8">
             <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-800">
-                Acceso habilitado
+                Consulta confirmada
             </span>
 
             <h2 class="mt-4 text-2xl font-bold tracking-[-0.03em] text-slate-900 md:text-3xl">
@@ -22,7 +22,7 @@
             </h2>
 
             <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">
-                Este acceso estara disponible durante {{ $accessTtlMinutes }} minutos en este dispositivo. Despues podras volver a validarte desde el portal.
+                Durante los proximos {{ $accessTtlMinutes }} minutos podras descargar tu tarjeta desde este dispositivo.
             </p>
 
             <div class="mt-8 grid gap-4 md:grid-cols-2">
@@ -42,20 +42,20 @@
                 </div>
 
                 <div class="rounded-[24px] bg-slate-50 px-5 py-5">
-                    <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Fecha de pago</span>
-                    <p class="mt-2 text-lg font-semibold text-slate-900">{{ optional($record->fecha_vigencia)->format('d/m/Y') ?? 'Sin fecha' }}</p>
+                    <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Valor de la cuota</span>
+                    <p class="mt-2 text-lg font-semibold text-slate-900">${{ number_format((float) $valorTarjeta, 0, ',', '.') }}</p>
                 </div>
             </div>
 
             <div class="mt-8 flex flex-col gap-4 sm:flex-row">
                 <a href="{{ route('tarjeta-digital.portal.download') }}" class="primary-btn inline-flex items-center justify-center px-6 text-base">
-                    Descargar tarjeta digital
+                    Descargar mi tarjeta
                 </a>
 
                 <form method="POST" action="{{ route('tarjeta-digital.portal.logout') }}">
                     @csrf
                     <button type="submit" class="secondary-btn w-full px-6 text-base sm:w-auto">
-                        Consultar otra tarjeta
+                        Hacer otra consulta
                     </button>
                 </form>
             </div>
@@ -68,23 +68,23 @@
                 </span>
 
                 <div class="mt-6">
-                    <p class="text-sm text-white/75">Valor visible en la tarjeta</p>
+                    <p class="text-sm text-white/75">Valor de la tarjeta</p>
                     <p class="mt-2 text-4xl font-extrabold tracking-[-0.05em]">
                         ${{ number_format((float) $valorTarjeta, 0, ',', '.') }}
                     </p>
                 </div>
 
                 <div class="mt-6 space-y-3 text-sm text-white/80">
-                    <p>El archivo se descargara en formato PNG.</p>
-                    <p>Puedes guardarlo en tu celular o compartirlo por WhatsApp.</p>
-                    <p>Si el acceso vence, solo necesitas volver a validar los datos del credito.</p>
+                    <p>La descarga se realizara como una imagen.</p>
+                    <p>Puedes guardarla en tu celular o compartirla cuando la necesites.</p>
+                    <p>Si el acceso vence, solo debes volver a hacer la consulta.</p>
                 </div>
             </div>
 
             <div class="mt-6 rounded-[24px] bg-slate-50 px-5 py-5">
-                <h3 class="text-base font-bold text-slate-900">Recomendacion</h3>
+                <h3 class="text-base font-bold text-slate-900">Sugerencia</h3>
                 <p class="mt-3 text-sm leading-6 text-slate-700">
-                    Descarga la tarjeta en este momento y consérvala en tu dispositivo para tenerla disponible cuando la necesites.
+                    Descarga tu tarjeta ahora y mantenla guardada en tu dispositivo para tenerla disponible cuando la necesites.
                 </p>
             </div>
         </section>

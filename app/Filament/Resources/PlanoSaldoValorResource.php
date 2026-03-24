@@ -134,6 +134,13 @@ class PlanoSaldoValorResource extends Resource
                             ->directory('planos/saldos')
                             ->helperText('De este archivo se toman el valor vencido y el saldo capital.')
                             ->required(),
+                        Forms\Components\FileUpload::make('archivo_post_cierre')
+                            ->label('Creditos posteriores al cierre (.txt/.csv)')
+                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
+                            ->disk('public')
+                            ->directory('planos/saldos')
+                            ->helperText('Opcional. Se usa para complementar creditos nuevos no incluidos en la cartera del mes. El archivo debe venir separado por |.')
+                            ->required(false),
                         Forms\Components\DatePicker::make('fecha_archivo')
                             ->label('Fecha Vigencia Plano')
                             ->required()
@@ -142,11 +149,20 @@ class PlanoSaldoValorResource extends Resource
                     ->action(function (array $data) {
                         $carteraPath = Storage::disk('public')->path($data['archivo_cartera']);
                         $saldosPath = Storage::disk('public')->path($data['archivo_saldos']);
+                        $postCierrePath = null;
 
-                        if (!file_exists($carteraPath) || !file_exists($saldosPath)) {
+                        if (!empty($data['archivo_post_cierre'])) {
+                            $postCierrePath = Storage::disk('public')->path($data['archivo_post_cierre']);
+                        }
+
+                        if (
+                            !file_exists($carteraPath)
+                            || !file_exists($saldosPath)
+                            || ($postCierrePath !== null && !file_exists($postCierrePath))
+                        ) {
                             Notification::make()
                                 ->title('Error')
-                                ->body('Uno o ambos archivos no fueron encontrados.')
+                                ->body('Uno o varios archivos no fueron encontrados.')
                                 ->danger()
                                 ->send();
                             return;
@@ -157,6 +173,7 @@ class PlanoSaldoValorResource extends Resource
                                 $carteraPath,
                                 $saldosPath,
                                 $data['fecha_archivo'],
+                                $postCierrePath,
                             );
                         } catch (\Throwable $exception) {
                             Notification::make()

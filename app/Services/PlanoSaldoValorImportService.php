@@ -10,7 +10,12 @@ use ZipArchive;
 
 class PlanoSaldoValorImportService
 {
-    public function import(string $carteraPath, string $saldosPath, mixed $fechaArchivo): array
+    public function import(
+        string $carteraPath,
+        string $saldosPath,
+        mixed $fechaArchivo,
+        ?string $postCierrePath = null
+    ): array
     {
         if (!is_file($carteraPath)) {
             throw new RuntimeException('No se encontro el archivo de cartera.');
@@ -20,7 +25,14 @@ class PlanoSaldoValorImportService
             throw new RuntimeException('No se encontro el archivo de saldos Aicoll.');
         }
 
+        if (is_string($postCierrePath) && trim($postCierrePath) !== '' && !is_file($postCierrePath)) {
+            throw new RuntimeException('No se encontro el archivo de creditos posteriores al cierre.');
+        }
+
         $carteraRows = $this->readCsvAssoc($carteraPath);
+        $postCierreRows = is_string($postCierrePath) && trim($postCierrePath) !== ''
+            ? $this->readCsvAssoc($postCierrePath, '|')
+            : null;
         [$saldosByCredito, $saldosByDocumento, $saldosRows, $registrosSaldos] = $this->indexRows($saldosPath);
 
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
@@ -36,48 +48,44 @@ class PlanoSaldoValorImportService
         $ignoradosIguales = 0;
         $sinCoincidenciaSaldos = 0;
         $matchedSaldosRowIds = [];
+        $processedReferenceKeys = [];
 
-        foreach ($carteraRows as $carteraRow) {
-            $saldosRow = $this->findMatchingRow(
-                $carteraRow,
+        $this->importReferenceRows(
+            $carteraRows,
+            $processedReferenceKeys,
+            $matchedSaldosRowIds,
+            $datosRe,
+            $datosGou,
+            $creados,
+            $actualizados,
+            $ignoradosIguales,
+            $sinCoincidenciaSaldos,
+            $saldosByCredito,
+            $saldosByDocumento,
+            $periodo,
+            $fechaConvArchivo,
+            $periodoFin,
+            $fechaVigencia,
+        );
+
+        if ($postCierreRows !== null) {
+            $this->importReferenceRows(
+                $postCierreRows,
+                $processedReferenceKeys,
+                $matchedSaldosRowIds,
+                $datosRe,
+                $datosGou,
+                $creados,
+                $actualizados,
+                $ignoradosIguales,
+                $sinCoincidenciaSaldos,
                 $saldosByCredito,
                 $saldosByDocumento,
-            );
-
-            if ($saldosRow === null) {
-                $sinCoincidenciaSaldos++;
-            } else {
-                $matchedSaldosRowIds[$saldosRow['__row_id']] = true;
-            }
-
-            $resultadoFila = $this->processRow(
-                $carteraRow,
-                $saldosRow,
                 $periodo,
                 $fechaConvArchivo,
                 $periodoFin,
                 $fechaVigencia,
             );
-
-            if ($resultadoFila === null) {
-                continue;
-            }
-
-            if ($resultadoFila['status'] === 'ignored') {
-                $ignoradosIguales++;
-                continue;
-            }
-
-            if ($resultadoFila['status'] === 'created') {
-                $creados++;
-            } else {
-                $actualizados++;
-            }
-
-            $rowKey = $resultadoFila['row_key'];
-            $datosRe[$rowKey] = $resultadoFila['datos_re'];
-            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
-            $procesados = $creados + $actualizados;
         }
 
         foreach ($saldosRows as $saldosRow) {
@@ -112,9 +120,9 @@ class PlanoSaldoValorImportService
             $rowKey = $resultadoFila['row_key'];
             $datosRe[$rowKey] = $resultadoFila['datos_re'];
             $datosGou[$rowKey] = $resultadoFila['datos_gou'];
-            $procesados = $creados + $actualizados;
         }
 
+        $procesados = $creados + $actualizados;
         $zipPath = null;
 
         if (count($datosRe) > 0) {
@@ -130,6 +138,76 @@ class PlanoSaldoValorImportService
             'sin_coincidencia_saldos' => $sinCoincidenciaSaldos,
             'zip_path' => $zipPath,
         ];
+    }
+
+    private function importReferenceRows(
+        iterable $referenceRows,
+        array &$processedReferenceKeys,
+        array &$matchedSaldosRowIds,
+        array &$datosRe,
+        array &$datosGou,
+        int &$creados,
+        int &$actualizados,
+        int &$ignoradosIguales,
+        int &$sinCoincidenciaSaldos,
+        array $saldosByCredito,
+        array $saldosByDocumento,
+        string $periodo,
+        string $fechaConvArchivo,
+        string $periodoFin,
+        Carbon $fechaVigencia
+    ): void {
+        foreach ($referenceRows as $referenceRow) {
+            $referenceKey = $this->buildReferenceKey($referenceRow);
+
+            if ($referenceKey !== '' && isset($processedReferenceKeys[$referenceKey])) {
+                continue;
+            }
+
+            if ($referenceKey !== '') {
+                $processedReferenceKeys[$referenceKey] = true;
+            }
+
+            $saldosRow = $this->findMatchingRow(
+                $referenceRow,
+                $saldosByCredito,
+                $saldosByDocumento,
+            );
+
+            if ($saldosRow === null) {
+                $sinCoincidenciaSaldos++;
+            } else {
+                $matchedSaldosRowIds[$saldosRow['__row_id']] = true;
+            }
+
+            $resultadoFila = $this->processRow(
+                $referenceRow,
+                $saldosRow,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $fechaVigencia,
+            );
+
+            if ($resultadoFila === null) {
+                continue;
+            }
+
+            if ($resultadoFila['status'] === 'ignored') {
+                $ignoradosIguales++;
+                continue;
+            }
+
+            if ($resultadoFila['status'] === 'created') {
+                $creados++;
+            } else {
+                $actualizados++;
+            }
+
+            $rowKey = $resultadoFila['row_key'];
+            $datosRe[$rowKey] = $resultadoFila['datos_re'];
+            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
+        }
     }
 
     private function processRow(
@@ -279,8 +357,14 @@ class PlanoSaldoValorImportService
     private function createZip(array $datosRe, array $datosGou, string $fechaConvArchivo): string
     {
         $zip = new ZipArchive();
-        $zipFileName = 'planos_procesados_' . now()->format('Ymd_His') . '.zip';
-        $zipPath = storage_path('app/public/' . $zipFileName);
+        $directory = storage_path('app/public');
+
+        if (!is_dir($directory) && !mkdir($directory, 0777, true) && !is_dir($directory)) {
+            throw new RuntimeException('No fue posible preparar el directorio de salida para el ZIP.');
+        }
+
+        $zipFileName = 'planos_procesados_' . now()->format('Ymd_His_u') . '_' . bin2hex(random_bytes(4)) . '.zip';
+        $zipPath = $directory . DIRECTORY_SEPARATOR . $zipFileName;
 
         if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
             throw new RuntimeException('No fue posible crear el archivo ZIP de salida.');
@@ -340,11 +424,11 @@ class PlanoSaldoValorImportService
         return [round($valorCuota, 2), 'Valor cuota'];
     }
 
-    private function readCsvAssoc(string $path): \Generator
+    private function readCsvAssoc(string $path, string $delimiter = ';'): \Generator
     {
         $file = new SplFileObject($path);
         $file->setFlags(SplFileObject::READ_CSV | SplFileObject::SKIP_EMPTY | SplFileObject::DROP_NEW_LINE);
-        $file->setCsvControl(';');
+        $file->setCsvControl($delimiter);
 
         $headers = null;
 
@@ -408,7 +492,7 @@ class PlanoSaldoValorImportService
     {
         $header = $this->sanitizeCell($value);
         $header = preg_replace('/^\xEF\xBB\xBF/u', '', $header);
-        $header = strtoupper($header);
+        $header = mb_strtoupper($header, 'UTF-8');
 
         return trim($header);
     }
@@ -555,6 +639,8 @@ class PlanoSaldoValorImportService
             'NUMERO_CREDITO',
             'NO_OBLIGACION',
             'A_OBLIGA',
+            'CA - NUMERO DE OBLIGACION',
+            'CA - NÚMERO DE OBLIGACIÓN',
             'OBLIGACION',
         ]));
     }
@@ -564,6 +650,8 @@ class PlanoSaldoValorImportService
         return $this->normalizeKey($this->pickValue($rows, [
             'NUMERO_DOCUMENTO',
             'ID_CLIENTE',
+            'AP - IDENTIFICACION',
+            'AP - IDENTIFICACIÓN',
             'CC',
             'C.C',
             'DOCUMENTO',
@@ -575,6 +663,7 @@ class PlanoSaldoValorImportService
         return $this->toFloat($this->pickValue([$carteraRow], [
             'VALOR_CUOTA',
             'VLR_CUOTA',
+            'CA - VALOR CUOTA',
             'V_CUOTA',
         ]));
     }
@@ -625,6 +714,20 @@ class PlanoSaldoValorImportService
             'APELLIDO_CLIENTE',
         ]));
 
+        if ($nombres === '') {
+            $nombres = trim(implode(' ', array_filter([
+                trim((string) $this->pickValue($rows, ['AP - NOMBRE 1'])),
+                trim((string) $this->pickValue($rows, ['AP - NOMBRE 2'])),
+            ])));
+        }
+
+        if ($apellidos === '') {
+            $apellidos = trim(implode(' ', array_filter([
+                trim((string) $this->pickValue($rows, ['AP - APELLIDO 1'])),
+                trim((string) $this->pickValue($rows, ['AP - APELLIDO 2'])),
+            ])));
+        }
+
         if ($nombres === '' && $apellidos === '') {
             $nombreCompleto = trim((string) $this->pickValue($rows, [
                 'NOMBRE',
@@ -652,6 +755,23 @@ class PlanoSaldoValorImportService
         }
 
         return [$nombres, $apellidos];
+    }
+
+    private function buildReferenceKey(?array ...$rows): string
+    {
+        $obligacion = $this->extractObligacion(...$rows);
+
+        if ($obligacion !== '') {
+            return 'obl:' . $obligacion;
+        }
+
+        $documento = $this->extractDocumento(...$rows);
+
+        if ($documento !== '') {
+            return 'doc:' . $documento;
+        }
+
+        return '';
     }
 
     private function pickValue(array $rows, array $keys): mixed

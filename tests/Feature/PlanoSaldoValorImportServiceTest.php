@@ -54,16 +54,24 @@ class PlanoSaldoValorImportServiceTest extends TestCase
             ['1002', '9002', '120000', '300000', '10'],
             ['1003', '9003', '90000', '0', '5'],
             ['1004', '9004', '80000', '100000', '3'],
+            ['1005', '9005', '70000', '110000', '2'],
         ]);
+
+        $postCierrePath = $this->createCsv([
+            ['AP - Identificación', 'AP - Nombre 1', 'AP - Nombre 2', 'AP - Apellido 1', 'AP - Apellido 2', 'CA - Valor Cuota', 'CA - Número de Obligación', ''],
+            ['9004', 'JAIRO', 'ALEXANDER', 'AGUDELO', 'GUEVARA', '65603', '1004', ''],
+            ['9002', 'ANA', '', 'GOMEZ', '', '999999', '1002', ''],
+        ], '|');
 
         $resultado = app(PlanoSaldoValorImportService::class)->import(
             $carteraPath,
             $saldosPath,
             '2026-03-24',
+            $postCierrePath,
         );
 
-        $this->assertSame(3, $resultado['procesados']);
-        $this->assertSame(3, $resultado['creados']);
+        $this->assertSame(4, $resultado['procesados']);
+        $this->assertSame(4, $resultado['creados']);
         $this->assertSame(0, $resultado['actualizados']);
         $this->assertSame(0, $resultado['ignorados_iguales']);
         $this->assertSame(0, $resultado['sin_coincidencia_saldos']);
@@ -86,11 +94,22 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame(150000.0, (float) $creditoConCuotaMayor->valor_cuota);
         $this->assertSame('Valor cuota', $creditoConCuotaMayor->observacion);
 
-        $creditoNuevoSoloEnSaldos = PlanoSaldoValor::query()
+        $creditoPostCierre = PlanoSaldoValor::query()
             ->where('obligacion', '1004')
             ->firstOrFail();
 
-        $this->assertSame(80000.0, (float) $creditoNuevoSoloEnSaldos->valor_reportar);
+        $this->assertSame('9004', $creditoPostCierre->cc);
+        $this->assertSame('JAIRO ALEXANDER', $creditoPostCierre->nombres);
+        $this->assertSame('AGUDELO GUEVARA', $creditoPostCierre->apellidos);
+        $this->assertSame(80000.0, (float) $creditoPostCierre->valor_reportar);
+        $this->assertSame(65603.0, (float) $creditoPostCierre->valor_cuota);
+        $this->assertSame('Valor vencido', $creditoPostCierre->observacion);
+
+        $creditoNuevoSoloEnSaldos = PlanoSaldoValor::query()
+            ->where('obligacion', '1005')
+            ->firstOrFail();
+
+        $this->assertSame(70000.0, (float) $creditoNuevoSoloEnSaldos->valor_reportar);
         $this->assertSame(0.0, (float) $creditoNuevoSoloEnSaldos->valor_cuota);
         $this->assertDatabaseMissing('plano_saldos_valores', [
             'obligacion' => '1003',
@@ -98,7 +117,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         ]);
     }
 
-    private function createCsv(array $rows): string
+    private function createCsv(array $rows, string $delimiter = ';'): string
     {
         $path = tempnam(sys_get_temp_dir(), 'plano_saldo_valor_');
 
@@ -113,7 +132,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         }
 
         foreach ($rows as $row) {
-            fputcsv($handle, $row, ';');
+            fputcsv($handle, $row, $delimiter);
         }
 
         fclose($handle);
