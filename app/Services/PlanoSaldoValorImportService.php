@@ -274,7 +274,7 @@ class PlanoSaldoValorImportService
 
         $valorReportarEntero = (int) round($valorReportar);
         $rowKey = $cc . '|' . $obligacion;
-        $nombreCompleto = trim($nombres . ' ' . $apellidos);
+        $exportNames = $this->prepareExportNames($nombres, $apellidos, $carteraRow, $saldosRow);
 
         return [
             'status' => $alreadyExists ? 'updated' : 'created',
@@ -283,8 +283,8 @@ class PlanoSaldoValorImportService
                 'ID_ENTIDAD' => 9,
                 'ID_SUCURSAL' => 1,
                 'A_OBLIGA' => $obligacion,
-                'NOMBRE_CLIENTE' => $nombres,
-                'APELLIDO_CLIENTE' => $apellidos,
+                'NOMBRE_CLIENTE' => $exportNames['re_nombre'],
+                'APELLIDO_CLIENTE' => $exportNames['re_apellido'],
                 'GRADO' => ' ',
                 'V_CUOTA' => $valorReportarEntero,
                 'RECARGO' => ' ',
@@ -298,7 +298,7 @@ class PlanoSaldoValorImportService
                 'obligacion' => $obligacion,
                 'cc' => $cc,
                 'cc1' => $cc,
-                'nombres' => $nombreCompleto,
+                'nombres' => $exportNames['gou_nombre'],
                 'valor_reportar' => $valorReportarEntero,
                 'periodo' => $fechaConvArchivo,
                 'valor_recargo' => '00000',
@@ -755,6 +755,107 @@ class PlanoSaldoValorImportService
         }
 
         return [$nombres, $apellidos];
+    }
+
+    private function prepareExportNames(string $nombres, string $apellidos, ?array ...$rows): array
+    {
+        $nombres = $this->normalizeExportText($nombres);
+        $apellidos = $this->normalizeExportText($apellidos);
+        $nombreBase = $this->normalizeExportText((string) $this->pickValue($rows, [
+            'RAZON_SOCIAL',
+            'RAZON SOCIAL',
+            'NOMBRE',
+            'NOMBRE_COMPLETO',
+        ]));
+
+        if ($nombreBase === '') {
+            $nombreBase = $this->normalizeExportText(trim($nombres . ' ' . $apellidos));
+        }
+
+        if ($this->looksLikeCompanyName($nombreBase, $nombres, $apellidos, ...$rows)) {
+            $companyName = $this->truncateExportText($nombreBase !== '' ? $nombreBase : trim($nombres . ' ' . $apellidos), 45);
+
+            return [
+                're_nombre' => $companyName,
+                're_apellido' => '',
+                'gou_nombre' => $companyName,
+            ];
+        }
+
+        return [
+            're_nombre' => $nombres,
+            're_apellido' => $apellidos,
+            'gou_nombre' => $this->normalizeExportText(trim($nombres . ' ' . $apellidos)),
+        ];
+    }
+
+    private function looksLikeCompanyName(string $nombreBase, string $nombres, string $apellidos, ?array ...$rows): bool
+    {
+        if ($this->pickValue($rows, ['RAZON_SOCIAL', 'RAZON SOCIAL']) !== null) {
+            return true;
+        }
+
+        if ($nombres === 'EMPRESA' || $apellidos === 'EMPRESA') {
+            return true;
+        }
+
+        $candidate = ' ' . mb_strtoupper(trim($nombreBase !== '' ? $nombreBase : $nombres . ' ' . $apellidos), 'UTF-8') . ' ';
+
+        foreach ([
+            ' SAS ',
+            ' S.A.S ',
+            ' S A S ',
+            ' LTDA ',
+            ' LIMITADA ',
+            ' S.A ',
+            ' SA ',
+            ' E.U ',
+            ' COOPERATIVA ',
+            ' ASOCIACION ',
+            ' ASOCIACIÓN ',
+            ' FUNDACION ',
+            ' FUNDACIÓN ',
+            ' CORPORACION ',
+            ' CORPORACIÓN ',
+            ' CONSORCIO ',
+            ' UNION TEMPORAL ',
+            ' UNIÓN TEMPORAL ',
+            ' COMERCIAL ',
+            ' SERVICIOS ',
+            ' EMPRESA ',
+            ' INDUSTRIAS ',
+        ] as $keyword) {
+            if (str_contains($candidate, $keyword)) {
+                return true;
+            }
+        }
+
+        $hasStructuredPersonName = $this->pickValue($rows, [
+            'APELLIDOS',
+            'APELLIDO_CLIENTE',
+            'AP - APELLIDO 1',
+            'AP - APELLIDO 2',
+            'AP - NOMBRE 1',
+            'AP - NOMBRE 2',
+        ]) !== null;
+
+        return !$hasStructuredPersonName && mb_strlen(trim($nombreBase), 'UTF-8') > 45;
+    }
+
+    private function normalizeExportText(string $text): string
+    {
+        return preg_replace('/\s+/u', ' ', trim($text)) ?? trim($text);
+    }
+
+    private function truncateExportText(string $text, int $maxLength): string
+    {
+        $normalized = $this->normalizeExportText($text);
+
+        if ($maxLength <= 0 || mb_strlen($normalized, 'UTF-8') <= $maxLength) {
+            return $normalized;
+        }
+
+        return rtrim(mb_substr($normalized, 0, $maxLength, 'UTF-8'));
     }
 
     private function buildReferenceKey(?array ...$rows): string

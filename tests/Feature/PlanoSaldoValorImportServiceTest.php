@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Tests\TestCase;
+use ZipArchive;
 
 class PlanoSaldoValorImportServiceTest extends TestCase
 {
@@ -117,6 +118,45 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         ]);
     }
 
+    public function test_it_truncates_company_name_to_45_characters_in_generated_files(): void
+    {
+        $companyName = 'COMERCIALIZADORA Y DISTRIBUIDORA NACIONAL DE ALIMENTOS DEL SUR SAS';
+
+        $carteraPath = $this->createCsv([
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+            ['2001', '9010', $companyName, '185000', '900000', 'MICROCREDITO'],
+        ]);
+
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['2001', '9010', '125000', '810000', '14'],
+        ]);
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $expectedName = rtrim(mb_substr($companyName, 0, 45, 'UTF-8'));
+        $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
+        $contenidoGou = $this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv');
+
+        $rowsRe = $this->parseCsvContent($contenidoRe);
+        $rowsGou = $this->parseCsvContent($contenidoGou);
+
+        $nombreIndex = array_search('NOMBRE_CLIENTE', $rowsRe[0], true);
+        $apellidoIndex = array_search('APELLIDO_CLIENTE', $rowsRe[0], true);
+
+        $this->assertNotFalse($nombreIndex);
+        $this->assertNotFalse($apellidoIndex);
+        $this->assertSame($expectedName, $rowsRe[1][$nombreIndex]);
+        $this->assertSame('', $rowsRe[1][$apellidoIndex]);
+        $this->assertSame($expectedName, $rowsGou[1][3]);
+        $this->assertLessThanOrEqual(45, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
+        $this->assertLessThanOrEqual(45, mb_strlen($rowsGou[1][3], 'UTF-8'));
+    }
+
     private function createCsv(array $rows, string $delimiter = ';'): string
     {
         $path = tempnam(sys_get_temp_dir(), 'plano_saldo_valor_');
@@ -138,5 +178,50 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         fclose($handle);
 
         return $path;
+    }
+
+    private function readZipEntry(string $zipPath, string $entryName): string
+    {
+        $zip = new ZipArchive();
+        $opened = $zip->open($zipPath);
+
+        if ($opened !== true) {
+            $this->fail('No fue posible abrir el ZIP generado por la importacion.');
+        }
+
+        $content = $zip->getFromName($entryName);
+        $zip->close();
+
+        if (!is_string($content)) {
+            $this->fail('No fue posible leer la entrada ' . $entryName . ' del ZIP generado.');
+        }
+
+        return $content;
+    }
+
+    private function parseCsvContent(string $content): array
+    {
+        $stream = fopen('php://temp', 'r+');
+
+        if ($stream === false) {
+            $this->fail('No fue posible preparar el lector temporal del CSV.');
+        }
+
+        fwrite($stream, preg_replace('/^\xEF\xBB\xBF/u', '', $content) ?? $content);
+        rewind($stream);
+
+        $rows = [];
+
+        while (($row = fgetcsv($stream)) !== false) {
+            if ($row === [null]) {
+                continue;
+            }
+
+            $rows[] = $row;
+        }
+
+        fclose($stream);
+
+        return $rows;
     }
 }

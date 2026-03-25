@@ -11,9 +11,6 @@ class PlanoSaldoValorCardImageService
 {
     private const FALLBACK_WIDTH = 1667;
     private const FALLBACK_HEIGHT = 833;
-    private const CREDIT_MAX_WIDTH = 760;
-    private const DATE_MAX_WIDTH = 260;
-    private const AMOUNT_MAX_WIDTH = 620;
 
     public function generate(PlanoSaldoValor $record): string
     {
@@ -22,7 +19,9 @@ class PlanoSaldoValorCardImageService
         imagesavealpha($image, true);
 
         $white = imagecolorallocate($image, 255, 255, 255);
-        $shadow = imagecolorallocatealpha($image, 8, 25, 63, 45);
+        $outline = imagecolorallocatealpha($image, 3, 18, 58, 8);
+        $panelFill = imagecolorallocatealpha($image, 7, 34, 96, 52);
+        $panelBorder = imagecolorallocatealpha($image, 157, 227, 255, 74);
 
         $credito = trim((string) $record->obligacion);
         $fechaPago = $this->formatFechaPago($record->fecha_vigencia);
@@ -32,43 +31,50 @@ class PlanoSaldoValorCardImageService
         $fontRegular = $this->resolveFontPath(false);
         $fontBold = $this->resolveFontPath(true) ?? $fontRegular;
 
-        $this->drawText(
+        $this->drawPanel($image, 452, 92, 784, 120, $panelFill, $panelBorder);
+        $this->drawPanel($image, 644, 212, 360, 74, $panelFill, $panelBorder);
+        $this->drawPanel($image, 484, 316, 732, 110, $panelFill, $panelBorder);
+
+        $this->drawTextInBox(
             $image,
             $credito !== '' ? $credito : 'N/A',
-            74,
-            448,
-            162,
+            118,
+            452,
+            92,
+            784,
+            120,
             $white,
             $fontBold,
-            self::CREDIT_MAX_WIDTH,
-            $shadow,
-            4,
+            $outline,
+            5,
         );
 
-        $this->drawText(
+        $this->drawTextInBox(
             $image,
             $fechaPago,
-            48,
-            640,
-            254,
+            70,
+            644,
+            212,
+            360,
+            74,
             $white,
-            $fontRegular ?? $fontBold,
-            self::DATE_MAX_WIDTH,
-            $shadow,
-            3,
+            $fontBold ?? $fontRegular,
+            $outline,
+            4,
         );
 
-        $this->drawText(
+        $this->drawTextInBox(
             $image,
             $valorCuota,
-            78,
-            500,
-            382,
+            118,
+            484,
+            316,
+            732,
+            110,
             $white,
             $fontBold,
-            self::AMOUNT_MAX_WIDTH,
-            $shadow,
-            4,
+            $outline,
+            5,
         );
 
         ob_start();
@@ -110,6 +116,79 @@ class PlanoSaldoValorCardImageService
         return $image;
     }
 
+    private function drawPanel($image, int $x, int $y, int $width, int $height, int $fillColor, ?int $borderColor = null): void
+    {
+        imagefilledrectangle($image, $x, $y, $x + $width, $y + $height, $fillColor);
+
+        if ($borderColor !== null) {
+            imagerectangle($image, $x, $y, $x + $width, $y + $height, $borderColor);
+        }
+    }
+
+    private function drawTextInBox(
+        $image,
+        string $text,
+        int $size,
+        int $x,
+        int $y,
+        int $width,
+        int $height,
+        int $color,
+        ?string $fontPath,
+        ?int $shadowColor = null,
+        int $strokeSize = 0
+    ): void {
+        $text = trim($text);
+
+        if ($text === '') {
+            return;
+        }
+
+        if ($fontPath && is_file($fontPath) && function_exists('imagettftext')) {
+            $paddingX = 14;
+            $paddingY = 6;
+            $fitSize = $this->fitTextSize(
+                $text,
+                $size,
+                $fontPath,
+                max(1, $width - ($paddingX * 2)),
+                max(1, $height - ($paddingY * 2)),
+            );
+            [, $textHeight, $minX, $minY] = $this->measureTtfText($text, $fitSize, $fontPath);
+
+            $drawX = $x + $paddingX - $minX;
+            $drawY = $y + (int) round(($height - $textHeight) / 2) - $minY;
+
+            $this->drawText(
+                $image,
+                $text,
+                $fitSize,
+                $drawX,
+                $drawY,
+                $color,
+                $fontPath,
+                $width,
+                $shadowColor,
+                $strokeSize,
+            );
+
+            return;
+        }
+
+        $this->drawText(
+            $image,
+            $text,
+            $size,
+            $x + 16,
+            $y + $height - 8,
+            $color,
+            $fontPath,
+            $width,
+            $shadowColor,
+            $strokeSize,
+        );
+    }
+
     private function drawText(
         $image,
         string $text,
@@ -132,7 +211,15 @@ class PlanoSaldoValorCardImageService
             $fitSize = $this->fitTextSize($text, $size, $fontPath, $maxWidth);
 
             if ($shadowColor !== null && $shadowOffset > 0) {
-                imagettftext($image, $fitSize, 0, $x + $shadowOffset, $y + $shadowOffset, $shadowColor, $fontPath, $text);
+                for ($offsetX = -$shadowOffset; $offsetX <= $shadowOffset; $offsetX++) {
+                    for ($offsetY = -$shadowOffset; $offsetY <= $shadowOffset; $offsetY++) {
+                        if ($offsetX === 0 && $offsetY === 0) {
+                            continue;
+                        }
+
+                        imagettftext($image, $fitSize, 0, $x + $offsetX, $y + $offsetY, $shadowColor, $fontPath, $text);
+                    }
+                }
             }
 
             imagettftext($image, $fitSize, 0, $x, $y, $color, $fontPath, $text);
@@ -201,24 +288,26 @@ class PlanoSaldoValorCardImageService
         return null;
     }
 
-    private function fitTextSize(string $text, int $preferredSize, string $fontPath, ?int $maxWidth): int
+    private function fitTextSize(
+        string $text,
+        int $preferredSize,
+        string $fontPath,
+        ?int $maxWidth,
+        ?int $maxHeight = null
+    ): int
     {
-        if ($maxWidth === null || $maxWidth <= 0) {
+        if (($maxWidth === null || $maxWidth <= 0) && ($maxHeight === null || $maxHeight <= 0)) {
             return $preferredSize;
         }
 
         $size = $preferredSize;
 
         while ($size > 20) {
-            $box = imagettfbbox($size, 0, $fontPath, $text);
+            [$width, $height] = $this->measureTtfText($text, $size, $fontPath);
+            $fitsWidth = $maxWidth === null || $maxWidth <= 0 || $width <= $maxWidth;
+            $fitsHeight = $maxHeight === null || $maxHeight <= 0 || $height <= $maxHeight;
 
-            if ($box === false) {
-                return $preferredSize;
-            }
-
-            $width = (int) abs($box[2] - $box[0]);
-
-            if ($width <= $maxWidth) {
+            if ($fitsWidth && $fitsHeight) {
                 return $size;
             }
 
@@ -226,6 +315,29 @@ class PlanoSaldoValorCardImageService
         }
 
         return max(20, $size);
+    }
+
+    private function measureTtfText(string $text, int $size, string $fontPath): array
+    {
+        $box = imagettfbbox($size, 0, $fontPath, $text);
+
+        if ($box === false) {
+            return [0, 0, 0, 0];
+        }
+
+        $xs = [$box[0], $box[2], $box[4], $box[6]];
+        $ys = [$box[1], $box[3], $box[5], $box[7]];
+        $minX = min($xs);
+        $maxX = max($xs);
+        $minY = min($ys);
+        $maxY = max($ys);
+
+        return [
+            (int) ($maxX - $minX),
+            (int) ($maxY - $minY),
+            (int) $minX,
+            (int) $minY,
+        ];
     }
 
     private function drawScaledBitmapText(
