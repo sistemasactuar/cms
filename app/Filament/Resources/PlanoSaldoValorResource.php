@@ -28,18 +28,52 @@ class PlanoSaldoValorResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('obligacion')->required(),
-                Forms\Components\TextInput::make('cc')->required(),
-                Forms\Components\TextInput::make('nombres'),
-                Forms\Components\TextInput::make('apellidos'),
-                Forms\Components\TextInput::make('valor_reportar')->numeric(),
-                Forms\Components\TextInput::make('valor_cuota')->numeric(),
-                Forms\Components\TextInput::make('modalidad'),
-                Forms\Components\TextInput::make('periodo'),
-                Forms\Components\TextInput::make('observacion'),
-                Forms\Components\TextInput::make('saldo_capital')->numeric(),
-                Forms\Components\TextInput::make('dias_mora')->numeric(),
-                Forms\Components\DatePicker::make('fecha_vigencia'),
+                Forms\Components\TextInput::make('obligacion')
+                    ->label('Numero de credito')
+                    ->required(),
+                Forms\Components\TextInput::make('cc')
+                    ->label('Documento')
+                    ->required(),
+                Forms\Components\TextInput::make('nombres')
+                    ->label('Nombres'),
+                Forms\Components\TextInput::make('apellidos')
+                    ->label('Apellidos'),
+                Forms\Components\DatePicker::make('fecha_nacimiento')
+                    ->label('Fecha de nacimiento')
+                    ->helperText('Opcional, pero recomendada si el portal publico validara por documento y fecha de nacimiento.'),
+                Forms\Components\TextInput::make('valor_reportar')
+                    ->label('Valor a reportar')
+                    ->numeric(),
+                Forms\Components\TextInput::make('valor_cuota')
+                    ->label('Valor cuota')
+                    ->numeric(),
+                Forms\Components\TextInput::make('valor_vencido')
+                    ->label('Valor vencido')
+                    ->numeric(),
+                Forms\Components\TextInput::make('saldo_capital')
+                    ->label('Saldo capital')
+                    ->numeric(),
+                Forms\Components\TextInput::make('dias_mora')
+                    ->label('Dias mora')
+                    ->numeric(),
+                Forms\Components\TextInput::make('modalidad')
+                    ->label('Modalidad'),
+                Forms\Components\TextInput::make('periodo')
+                    ->label('Periodo'),
+                Forms\Components\TextInput::make('origen_registro')
+                    ->label('Origen registro'),
+                Forms\Components\DatePicker::make('fecha_entrada_plano')
+                    ->label('Fecha entrada plano'),
+                Forms\Components\TextInput::make('estado_registro')
+                    ->label('Estado registro'),
+                Forms\Components\TextInput::make('observacion')
+                    ->label('Observacion'),
+                Forms\Components\DatePicker::make('fecha_vigencia')
+                    ->label('Fecha vigencia'),
+                Forms\Components\DatePicker::make('ultima_fecha_saldo_diario')
+                    ->label('Ultimo saldo diario'),
+                Forms\Components\TextInput::make('ultimo_estado_saldo_diario')
+                    ->label('Ultimo estado saldo diario'),
             ]);
     }
 
@@ -47,16 +81,25 @@ class PlanoSaldoValorResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('obligacion')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('obligacion')->label('Credito')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('cc')->searchable()->sortable()->label('Documento'),
                 Tables\Columns\TextColumn::make('nombres')->searchable(),
                 Tables\Columns\TextColumn::make('apellidos')->searchable(),
+                Tables\Columns\TextColumn::make('fecha_nacimiento')->date()->sortable()->label('F. nacimiento'),
                 Tables\Columns\TextColumn::make('valor_reportar')->money('COP')->sortable(),
                 Tables\Columns\TextColumn::make('valor_cuota')->money('COP')->sortable(),
+                Tables\Columns\TextColumn::make('valor_vencido')->money('COP')->sortable(),
+                Tables\Columns\TextColumn::make('saldo_capital')->money('COP')->sortable(),
+                Tables\Columns\TextColumn::make('dias_mora')->numeric()->sortable()->label('Dias mora'),
                 Tables\Columns\TextColumn::make('modalidad')->sortable(),
+                Tables\Columns\TextColumn::make('origen_registro')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('estado_registro')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('fecha_entrada_plano')->date()->sortable()->label('Ingreso plano'),
                 Tables\Columns\TextColumn::make('periodo')->sortable(),
                 Tables\Columns\TextColumn::make('fecha_vigencia')->date()->sortable(),
-                Tables\Columns\TextColumn::make('observacion')->limit(30),
+                Tables\Columns\TextColumn::make('ultima_fecha_saldo_diario')->date()->sortable()->label('Ultimo saldo diario'),
+                Tables\Columns\TextColumn::make('ultimo_estado_saldo_diario')->badge()->sortable()->label('Ultimo mov. diario'),
+                Tables\Columns\TextColumn::make('observacion')->wrap(),
             ])
             ->filters([
                 Tables\Filters\Filter::make('fecha_vigencia')
@@ -74,7 +117,27 @@ class PlanoSaldoValorResource extends Resource
                                 $data['hasta'],
                                 fn(Builder $query, $date): Builder => $query->whereDate('fecha_vigencia', '<=', $date),
                             );
-                    })
+                    }),
+                Tables\Filters\SelectFilter::make('origen_registro')
+                    ->options([
+                        'mensual' => 'Mensual',
+                        'post_cierre' => 'Post cierre',
+                        'saldos_diario' => 'Solo saldos diario',
+                    ]),
+                Tables\Filters\SelectFilter::make('estado_registro')
+                    ->options([
+                        'activo' => 'Activo',
+                        'saldo_cero' => 'Saldo capital 0',
+                    ]),
+                Tables\Filters\SelectFilter::make('ultimo_estado_saldo_diario')
+                    ->label('Ultimo mov. diario')
+                    ->options([
+                        'nuevo' => 'Nuevo',
+                        'disminuyo' => 'Disminuyo',
+                        'aumento' => 'Aumento',
+                        'mixto' => 'Mixto',
+                        'sin_cambio' => 'Sin cambio',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\Action::make('descargarTarjeta')
@@ -128,18 +191,18 @@ class PlanoSaldoValorResource extends Resource
                             ->helperText('De este archivo se toma el valor de la cuota.')
                             ->required(),
                         Forms\Components\FileUpload::make('archivo_saldos')
-                            ->label('Archivo de saldos Aicoll (.csv)')
+                            ->label('Archivo de saldos diarios Aicoll (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('De este archivo se toman el valor vencido y el saldo capital.')
+                            ->helperText('Este archivo representa la foto diaria de saldos. Se usa para actualizar el consolidado y guardar el historial diario.')
                             ->required(),
                         Forms\Components\FileUpload::make('archivo_post_cierre')
                             ->label('Creditos posteriores al cierre (.txt/.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('Opcional. Se usa para complementar creditos nuevos no incluidos en la cartera del mes. El archivo debe venir separado por |.')
+                            ->helperText('Opcional. Complementa la cartera mensual con creditos nuevos que entraron despues del cierre. El archivo debe venir separado por |.')
                             ->required(false),
                         Forms\Components\DatePicker::make('fecha_archivo')
                             ->label('Fecha Vigencia Plano')

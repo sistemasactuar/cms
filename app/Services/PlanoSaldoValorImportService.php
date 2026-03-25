@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PlanoSaldoValor;
+use App\Models\PlanoSaldoValorSaldoDiario;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 use SplFileObject;
@@ -52,6 +53,7 @@ class PlanoSaldoValorImportService
 
         $this->importReferenceRows(
             $carteraRows,
+            'mensual',
             $processedReferenceKeys,
             $matchedSaldosRowIds,
             $datosRe,
@@ -71,6 +73,7 @@ class PlanoSaldoValorImportService
         if ($postCierreRows !== null) {
             $this->importReferenceRows(
                 $postCierreRows,
+                'post_cierre',
                 $processedReferenceKeys,
                 $matchedSaldosRowIds,
                 $datosRe,
@@ -100,6 +103,15 @@ class PlanoSaldoValorImportService
                 $fechaConvArchivo,
                 $periodoFin,
                 $fechaVigencia,
+                'saldos_diario',
+            );
+
+            $this->recordSaldoDiario(
+                $resultadoFila['record'] ?? $this->findCurrentRecordForRow(null, $saldosRow),
+                null,
+                $saldosRow,
+                $fechaVigencia,
+                'saldos_diario',
             );
 
             if ($resultadoFila === null) {
@@ -142,6 +154,7 @@ class PlanoSaldoValorImportService
 
     private function importReferenceRows(
         iterable $referenceRows,
+        string $sourceType,
         array &$processedReferenceKeys,
         array &$matchedSaldosRowIds,
         array &$datosRe,
@@ -187,7 +200,18 @@ class PlanoSaldoValorImportService
                 $fechaConvArchivo,
                 $periodoFin,
                 $fechaVigencia,
+                $sourceType,
             );
+
+            if ($saldosRow !== null) {
+                $this->recordSaldoDiario(
+                    $resultadoFila['record'] ?? $this->findCurrentRecordForRow($referenceRow, $saldosRow),
+                    $referenceRow,
+                    $saldosRow,
+                    $fechaVigencia,
+                    $sourceType,
+                );
+            }
 
             if ($resultadoFila === null) {
                 continue;
@@ -216,7 +240,8 @@ class PlanoSaldoValorImportService
         string $periodo,
         string $fechaConvArchivo,
         string $periodoFin,
-        Carbon $fechaVigencia
+        Carbon $fechaVigencia,
+        string $sourceType
     ): ?array {
         $obligacion = $this->extractObligacion($carteraRow, $saldosRow);
         $cc = $this->extractDocumento($carteraRow, $saldosRow);
@@ -245,12 +270,22 @@ class PlanoSaldoValorImportService
         [$nombres, $apellidos] = $this->extractNombrePartes($carteraRow, $saldosRow);
         $modalidad = $this->extractModalidad($carteraRow, $saldosRow);
         $diasMora = $this->extractDiasMora($saldosRow, $carteraRow);
+        $record = PlanoSaldoValor::firstOrNew(['cc' => $cc, 'obligacion' => $obligacion]);
+        $alreadyExists = $record->exists;
+        $origenRegistro = $this->resolveOriginRegistro($record->origen_registro, $sourceType);
+        $fechaEntradaPlano = $record->fecha_entrada_plano
+            ? $this->parseDate($record->fecha_entrada_plano)?->toDateString()
+            : $fechaVigencia->toDateString();
 
         $payload = [
             'nombres' => $nombres,
             'apellidos' => $apellidos,
             'valor_reportar' => $valorReportar,
             'valor_cuota' => $valorCuota,
+            'valor_vencido' => $valorVencido,
+            'origen_registro' => $origenRegistro,
+            'fecha_entrada_plano' => $fechaEntradaPlano,
+            'estado_registro' => 'activo',
             'modalidad' => $modalidad,
             'periodo' => $periodo,
             'observacion' => $observacion,
@@ -259,13 +294,11 @@ class PlanoSaldoValorImportService
             'fecha_vigencia' => $fechaVigencia->toDateString(),
         ];
 
-        $record = PlanoSaldoValor::firstOrNew(['cc' => $cc, 'obligacion' => $obligacion]);
-        $alreadyExists = $record->exists;
-
         if ($alreadyExists && $this->isSameAsStored($record, $payload)) {
             return [
                 'status' => 'ignored',
                 'row_key' => $cc . '|' . $obligacion,
+                'record' => $record,
             ];
         }
 
@@ -279,6 +312,7 @@ class PlanoSaldoValorImportService
         return [
             'status' => $alreadyExists ? 'updated' : 'created',
             'row_key' => $rowKey,
+            'record' => $record,
             'datos_re' => [
                 'ID_ENTIDAD' => 9,
                 'ID_SUCURSAL' => 1,
@@ -413,6 +447,148 @@ class PlanoSaldoValorImportService
         $zip->close();
 
         return $zipPath;
+    }
+
+    private function recordSaldoDiario(
+        ?PlanoSaldoValor $record,
+        ?array $referenceRow,
+        array $saldosRow,
+        Carbon $fechaArchivo,
+        string $sourceType
+    ): void {
+        $obligacion = $this->extractObligacion($referenceRow, $saldosRow);
+        $cc = $this->extractDocumento($referenceRow, $saldosRow);
+
+        if ($obligacion === '' || $cc === '') {
+            return;
+        }
+
+        $valorVencido = $this->extractValorVencido($saldosRow);
+        $saldoCapital = $this->extractSaldoCapital($saldosRow, $referenceRow);
+        $diasMora = $this->extractDiasMora($saldosRow, $referenceRow);
+        $valorCuota = $record?->valor_cuota !== null
+            ? (float) $record->valor_cuota
+            : $this->extractValorCuota($referenceRow);
+        $valorReportar = $saldoCapital > 0
+            ? $this->calcularValorReportar($valorCuota, $valorVencido)[0]
+            : 0.0;
+        $origenRegistro = $this->resolveOriginRegistro($record?->origen_registro, $sourceType);
+
+        $previousSnapshot = PlanoSaldoValorSaldoDiario::query()
+            ->where('cc', $cc)
+            ->where('obligacion', $obligacion)
+            ->whereDate('fecha_archivo', '<', $fechaArchivo->toDateString())
+            ->orderByDesc('fecha_archivo')
+            ->orderByDesc('id')
+            ->first();
+
+        $variacionValorVencido = $previousSnapshot !== null
+            ? round($valorVencido - (float) $previousSnapshot->valor_vencido, 2)
+            : null;
+        $variacionSaldoCapital = $previousSnapshot !== null
+            ? round($saldoCapital - (float) $previousSnapshot->saldo_capital, 2)
+            : null;
+
+        $snapshot = PlanoSaldoValorSaldoDiario::firstOrNew([
+            'fecha_archivo' => $fechaArchivo->toDateString(),
+            'cc' => $cc,
+            'obligacion' => $obligacion,
+        ]);
+
+        $snapshot->fill([
+            'plano_saldo_valor_id' => $record?->id,
+            'valor_vencido' => $valorVencido,
+            'saldo_capital' => $saldoCapital,
+            'dias_mora' => $diasMora,
+            'valor_cuota' => $valorCuota,
+            'valor_reportar' => $valorReportar,
+            'origen_registro' => $origenRegistro,
+            'estado_movimiento' => $this->resolveEstadoMovimiento($variacionValorVencido, $variacionSaldoCapital),
+            'variacion_valor_vencido' => $variacionValorVencido,
+            'variacion_saldo_capital' => $variacionSaldoCapital,
+        ]);
+        $snapshot->save();
+
+        if ($record === null) {
+            return;
+        }
+
+        $record->fill([
+            'origen_registro' => $origenRegistro,
+            'ultima_fecha_saldo_diario' => $fechaArchivo->toDateString(),
+            'ultimo_estado_saldo_diario' => $snapshot->estado_movimiento,
+            'valor_vencido' => $valorVencido,
+            'saldo_capital' => $saldoCapital,
+            'dias_mora' => $diasMora,
+            'estado_registro' => $saldoCapital > 0 ? 'activo' : 'saldo_cero',
+            'observacion' => $saldoCapital > 0 ? $record->observacion : 'Saldo capital 0',
+            'valor_reportar' => $saldoCapital > 0 ? $record->valor_reportar : 0,
+            'fecha_vigencia' => $fechaArchivo->toDateString(),
+        ]);
+        $record->save();
+
+        if ($snapshot->plano_saldo_valor_id !== $record->id) {
+            $snapshot->plano_saldo_valor_id = $record->id;
+            $snapshot->save();
+        }
+    }
+
+    private function findCurrentRecordForRow(?array $referenceRow, ?array $saldosRow): ?PlanoSaldoValor
+    {
+        $obligacion = $this->extractObligacion($referenceRow, $saldosRow);
+        $cc = $this->extractDocumento($referenceRow, $saldosRow);
+
+        if ($obligacion === '' || $cc === '') {
+            return null;
+        }
+
+        return PlanoSaldoValor::query()
+            ->where('cc', $cc)
+            ->where('obligacion', $obligacion)
+            ->first();
+    }
+
+    private function resolveOriginRegistro(?string $currentOrigin, string $incomingOrigin): string
+    {
+        $priority = [
+            'saldos_diario' => 1,
+            'post_cierre' => 2,
+            'mensual' => 3,
+        ];
+
+        $currentOrigin = is_string($currentOrigin) ? trim($currentOrigin) : '';
+
+        if ($currentOrigin === '') {
+            return $incomingOrigin;
+        }
+
+        return ($priority[$incomingOrigin] ?? 0) >= ($priority[$currentOrigin] ?? 0)
+            ? $incomingOrigin
+            : $currentOrigin;
+    }
+
+    private function resolveEstadoMovimiento(?float $variacionValorVencido, ?float $variacionSaldoCapital): string
+    {
+        if ($variacionValorVencido === null && $variacionSaldoCapital === null) {
+            return 'nuevo';
+        }
+
+        $hasDecrease = ($variacionValorVencido ?? 0) < 0 || ($variacionSaldoCapital ?? 0) < 0;
+        $hasIncrease = ($variacionValorVencido ?? 0) > 0 || ($variacionSaldoCapital ?? 0) > 0;
+
+        if ($hasDecrease && $hasIncrease) {
+            return 'mixto';
+        }
+
+        if ($hasDecrease) {
+            return 'disminuyo';
+        }
+
+        if ($hasIncrease) {
+            return 'aumento';
+        }
+
+        return 'sin_cambio';
     }
 
     private function calcularValorReportar(float $valorCuota, float $valorVencido): array
@@ -601,7 +777,7 @@ class PlanoSaldoValorImportService
         foreach ($payload as $field => $incoming) {
             $current = $record->{$field};
 
-            if (in_array($field, ['valor_reportar', 'valor_cuota', 'saldo_capital'], true)) {
+            if (in_array($field, ['valor_reportar', 'valor_cuota', 'valor_vencido', 'saldo_capital'], true)) {
                 if (round((float) $current, 2) !== round((float) $incoming, 2)) {
                     return false;
                 }
@@ -615,7 +791,7 @@ class PlanoSaldoValorImportService
                 continue;
             }
 
-            if ($field === 'fecha_vigencia') {
+            if (in_array($field, ['fecha_vigencia', 'fecha_entrada_plano'], true)) {
                 $currentDate = $this->parseDate($current)?->toDateString();
                 $incomingDate = $this->parseDate($incoming)?->toDateString();
 

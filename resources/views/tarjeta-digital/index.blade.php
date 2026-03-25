@@ -12,7 +12,7 @@
                         Consulta tu tarjeta digital
                     </h2>
                     <p class="mt-3 max-w-xl text-sm leading-6 text-slate-600 md:text-base">
-                        Ingresa los datos de tu credito para encontrar tu tarjeta y descargarla en pocos pasos.
+                        Ingresa tu documento y tu fecha de nacimiento para encontrar tu tarjeta y descargarla en pocos pasos.
                     </p>
                 </div>
 
@@ -41,16 +41,15 @@
                 </label>
 
                 <label class="block">
-                    <span class="mb-2 block text-sm font-semibold text-slate-700">Numero de credito</span>
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Fecha de nacimiento</span>
                     <input
-                        type="text"
-                        name="credito"
-                        value="{{ old('credito') }}"
-                        autocomplete="off"
-                        placeholder="Ej. 10023456"
+                        type="date"
+                        name="fecha_nacimiento"
+                        value="{{ old('fecha_nacimiento') }}"
+                        autocomplete="bday"
                         class="field-shell w-full rounded-[18px] px-4 py-4 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
                     >
-                    @error('credito')
+                    @error('fecha_nacimiento')
                         <span class="mt-2 block text-sm text-rose-600">{{ $message }}</span>
                     @enderror
                 </label>
@@ -71,7 +70,7 @@
                     <div class="rounded-[24px] bg-slate-50 px-5 py-4">
                         <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Ten a la mano</span>
                         <p class="mt-2 text-sm leading-6 text-slate-700">
-                            Tu documento y el numero del credito.
+                            Tu documento y tu fecha de nacimiento.
                         </p>
                     </div>
 

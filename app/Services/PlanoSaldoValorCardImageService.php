@@ -19,9 +19,8 @@ class PlanoSaldoValorCardImageService
         imagesavealpha($image, true);
 
         $white = imagecolorallocate($image, 255, 255, 255);
-        $outline = imagecolorallocatealpha($image, 3, 18, 58, 8);
-        $panelFill = imagecolorallocatealpha($image, 7, 34, 96, 52);
-        $panelBorder = imagecolorallocatealpha($image, 157, 227, 255, 74);
+        $panelFill = imagecolorallocatealpha($image, 8, 36, 94, 64);
+        $panelBorder = imagecolorallocatealpha($image, 196, 236, 255, 92);
 
         $credito = trim((string) $record->obligacion);
         $fechaPago = $this->formatFechaPago($record->fecha_vigencia);
@@ -45,8 +44,6 @@ class PlanoSaldoValorCardImageService
             120,
             $white,
             $fontBold,
-            $outline,
-            5,
         );
 
         $this->drawTextInBox(
@@ -59,8 +56,6 @@ class PlanoSaldoValorCardImageService
             74,
             $white,
             $fontBold ?? $fontRegular,
-            $outline,
-            4,
         );
 
         $this->drawTextInBox(
@@ -73,8 +68,6 @@ class PlanoSaldoValorCardImageService
             110,
             $white,
             $fontBold,
-            $outline,
-            5,
         );
 
         ob_start();

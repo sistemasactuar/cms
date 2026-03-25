@@ -140,7 +140,7 @@ Route::post('/tarjeta-digital/validar', [PortalTarjetaDigitalController::class, 
 Route::get('/tarjeta-digital/descarga', [PortalTarjetaDigitalController::class, 'accessPage'])
     ->name('tarjeta-digital.portal.show');
 
-Route::get('/tarjeta-digital/descargar', [PortalTarjetaDigitalController::class, 'downloadCard'])
+Route::get('/tarjeta-digital/descargar/{record}', [PortalTarjetaDigitalController::class, 'downloadCard'])
     ->name('tarjeta-digital.portal.download');
 
 Route::post('/tarjeta-digital/salir', [PortalTarjetaDigitalController::class, 'clearAccess'])

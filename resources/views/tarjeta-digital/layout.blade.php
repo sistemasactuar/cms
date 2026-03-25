@@ -112,7 +112,7 @@
                         Consulta y descarga tu tarjeta digital
                     </h1>
                     <p class="mt-3 max-w-2xl text-sm leading-6 text-white/80 md:text-base">
-                        Escribe la informacion de tu credito y descarga tu tarjeta en este mismo portal.
+                        Valida tus datos personales y descarga tu tarjeta en este mismo portal.
                     </p>
                 </div>
 

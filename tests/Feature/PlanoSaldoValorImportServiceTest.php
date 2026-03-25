@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\PlanoSaldoValor;
+use App\Models\PlanoSaldoValorSaldoDiario;
 use App\Services\PlanoSaldoValorImportService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -28,16 +29,42 @@ class PlanoSaldoValorImportServiceTest extends TestCase
             $table->string('cc');
             $table->string('nombres')->nullable();
             $table->string('apellidos')->nullable();
+            $table->date('fecha_nacimiento')->nullable();
             $table->decimal('valor_reportar', 18, 2)->nullable();
             $table->decimal('valor_cuota', 18, 2)->nullable();
+            $table->decimal('valor_vencido', 18, 2)->nullable();
+            $table->string('origen_registro')->nullable();
+            $table->date('fecha_entrada_plano')->nullable();
+            $table->string('estado_registro')->nullable();
             $table->string('modalidad')->nullable();
             $table->string('periodo')->nullable();
             $table->string('observacion')->nullable();
             $table->decimal('saldo_capital', 18, 2)->nullable();
             $table->integer('dias_mora')->nullable();
             $table->date('fecha_vigencia')->nullable();
+            $table->date('ultima_fecha_saldo_diario')->nullable();
+            $table->string('ultimo_estado_saldo_diario')->nullable();
             $table->timestamps();
             $table->unique(['cc', 'obligacion'], 'uk_cc_obligacion');
+        });
+
+        Schema::create('plano_saldo_valor_saldos_diarios', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('plano_saldo_valor_id')->nullable();
+            $table->string('obligacion');
+            $table->string('cc');
+            $table->date('fecha_archivo');
+            $table->decimal('valor_vencido', 18, 2)->nullable();
+            $table->decimal('saldo_capital', 18, 2)->nullable();
+            $table->integer('dias_mora')->nullable();
+            $table->decimal('valor_cuota', 18, 2)->nullable();
+            $table->decimal('valor_reportar', 18, 2)->nullable();
+            $table->string('origen_registro')->nullable();
+            $table->string('estado_movimiento')->nullable();
+            $table->decimal('variacion_valor_vencido', 18, 2)->nullable();
+            $table->decimal('variacion_saldo_capital', 18, 2)->nullable();
+            $table->timestamps();
+            $table->unique(['fecha_archivo', 'cc', 'obligacion'], 'uk_psv_saldos_diarios_fecha_cc_obl');
         });
     }
 
@@ -85,6 +112,10 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('9001', $creditoConVencidoMayor->cc);
         $this->assertSame(250000.0, (float) $creditoConVencidoMayor->valor_reportar);
         $this->assertSame(100000.0, (float) $creditoConVencidoMayor->valor_cuota);
+        $this->assertSame(250000.0, (float) $creditoConVencidoMayor->valor_vencido);
+        $this->assertSame('mensual', $creditoConVencidoMayor->origen_registro);
+        $this->assertSame('activo', $creditoConVencidoMayor->estado_registro);
+        $this->assertSame('nuevo', $creditoConVencidoMayor->ultimo_estado_saldo_diario);
         $this->assertSame('Valor vencido', $creditoConVencidoMayor->observacion);
 
         $creditoConCuotaMayor = PlanoSaldoValor::query()
@@ -104,6 +135,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('AGUDELO GUEVARA', $creditoPostCierre->apellidos);
         $this->assertSame(80000.0, (float) $creditoPostCierre->valor_reportar);
         $this->assertSame(65603.0, (float) $creditoPostCierre->valor_cuota);
+        $this->assertSame('post_cierre', $creditoPostCierre->origen_registro);
         $this->assertSame('Valor vencido', $creditoPostCierre->observacion);
 
         $creditoNuevoSoloEnSaldos = PlanoSaldoValor::query()
@@ -112,10 +144,21 @@ class PlanoSaldoValorImportServiceTest extends TestCase
 
         $this->assertSame(70000.0, (float) $creditoNuevoSoloEnSaldos->valor_reportar);
         $this->assertSame(0.0, (float) $creditoNuevoSoloEnSaldos->valor_cuota);
+        $this->assertSame('saldos_diario', $creditoNuevoSoloEnSaldos->origen_registro);
         $this->assertDatabaseMissing('plano_saldos_valores', [
             'obligacion' => '1003',
             'cc' => '9003',
         ]);
+
+        $this->assertSame(5, PlanoSaldoValorSaldoDiario::query()->count());
+
+        $saldoCero = PlanoSaldoValorSaldoDiario::query()
+            ->where('obligacion', '1003')
+            ->where('cc', '9003')
+            ->firstOrFail();
+
+        $this->assertSame(0.0, (float) $saldoCero->saldo_capital);
+        $this->assertSame('nuevo', $saldoCero->estado_movimiento);
     }
 
     public function test_it_truncates_company_name_to_45_characters_in_generated_files(): void
@@ -155,6 +198,57 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame($expectedName, $rowsGou[1][3]);
         $this->assertLessThanOrEqual(45, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
         $this->assertLessThanOrEqual(45, mb_strlen($rowsGou[1][3], 'UTF-8'));
+    }
+
+    public function test_it_registers_daily_snapshots_and_detects_balance_changes(): void
+    {
+        $carteraPath = $this->createCsv([
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+            ['3001', '9901', 'MARIA LOPEZ', '120000', '800000', 'MICROCREDITO'],
+        ]);
+
+        $saldosDiaUno = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['3001', '9901', '150000', '780000', '18'],
+        ]);
+
+        $saldosDiaDos = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['3001', '9901', '90000', '720000', '10'],
+        ]);
+
+        app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosDiaUno,
+            '2026-03-24',
+        );
+
+        app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosDiaDos,
+            '2026-03-25',
+        );
+
+        $record = PlanoSaldoValor::query()
+            ->where('obligacion', '3001')
+            ->where('cc', '9901')
+            ->firstOrFail();
+
+        $this->assertSame(90000.0, (float) $record->valor_vencido);
+        $this->assertSame(720000.0, (float) $record->saldo_capital);
+        $this->assertSame('disminuyo', $record->ultimo_estado_saldo_diario);
+
+        $snapshots = PlanoSaldoValorSaldoDiario::query()
+            ->where('obligacion', '3001')
+            ->where('cc', '9901')
+            ->orderBy('fecha_archivo')
+            ->get();
+
+        $this->assertCount(2, $snapshots);
+        $this->assertSame('nuevo', $snapshots[0]->estado_movimiento);
+        $this->assertSame('disminuyo', $snapshots[1]->estado_movimiento);
+        $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_valor_vencido);
+        $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_saldo_capital);
     }
 
     private function createCsv(array $rows, string $delimiter = ';'): string

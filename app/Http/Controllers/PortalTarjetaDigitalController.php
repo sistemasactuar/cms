@@ -6,6 +6,7 @@ use App\Models\PlanoSaldoValor;
 use App\Services\PlanoSaldoValorCardImageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
@@ -22,7 +23,7 @@ class PortalTarjetaDigitalController extends Controller
     public function landing(Request $request): View
     {
         return view('tarjeta-digital.index', [
-            'hasActiveAccess' => $this->getAuthorizedRecord($request) !== null,
+            'hasActiveAccess' => $this->getAuthorizedRecords($request)->isNotEmpty(),
             'accessTtlMinutes' => self::ACCESS_TTL_MINUTES,
         ]);
     }
@@ -33,10 +34,10 @@ class PortalTarjetaDigitalController extends Controller
 
         $validator = Validator::make($request->all(), [
             'documento' => ['required', 'string', 'max:40'],
-            'credito' => ['required', 'string', 'max:40'],
+            'fecha_nacimiento' => ['required', 'string', 'max:20'],
         ], [
             'documento.required' => 'Ingresa tu documento para continuar.',
-            'credito.required' => 'Ingresa tu numero de credito.',
+            'fecha_nacimiento.required' => 'Ingresa tu fecha de nacimiento.',
         ]);
 
         if ($validator->fails()) {
@@ -47,54 +48,75 @@ class PortalTarjetaDigitalController extends Controller
 
         $data = $validator->validated();
         $documento = $this->normalizeKey($data['documento']);
-        $credito = $this->normalizeKey($data['credito']);
+        $fechaNacimiento = $this->normalizeDateInput($data['fecha_nacimiento']);
 
-        $record = PlanoSaldoValor::query()
-            ->where('cc', $documento)
-            ->where('obligacion', $credito)
-            ->first();
-
-        if ($record === null) {
+        if ($fechaNacimiento === null) {
             $this->hitRateLimit($request);
 
             throw ValidationException::withMessages([
-                'documento' => 'No pudimos encontrar una tarjeta con la informacion ingresada. Revisa tu documento y numero de credito.',
+                'fecha_nacimiento' => 'Ingresa una fecha valida en formato dia/mes/ano.',
+            ]);
+        }
+
+        $records = PlanoSaldoValor::query()
+            ->where('cc', $documento)
+            ->whereDate('fecha_nacimiento', $fechaNacimiento->toDateString())
+            ->orderByDesc('fecha_vigencia')
+            ->orderBy('obligacion')
+            ->get();
+
+        if ($records->isEmpty()) {
+            $this->hitRateLimit($request);
+
+            $hasDocumentMatchesWithoutBirthDate = PlanoSaldoValor::query()
+                ->where('cc', $documento)
+                ->whereNull('fecha_nacimiento')
+                ->exists();
+
+            if ($hasDocumentMatchesWithoutBirthDate) {
+                throw ValidationException::withMessages([
+                    'fecha_nacimiento' => 'Aun no tenemos tu fecha de nacimiento registrada para esta consulta. Comunicate con Actuar para actualizar tus datos.',
+                ]);
+            }
+
+            throw ValidationException::withMessages([
+                'documento' => 'No pudimos encontrar una tarjeta con la informacion ingresada. Revisa tu documento y tu fecha de nacimiento.',
             ]);
         }
 
         RateLimiter::clear($this->rateLimitKey($request));
 
         $request->session()->put(self::ACCESS_SESSION_KEY, [
-            'record_id' => $record->id,
+            'record_ids' => $records->pluck('id')->all(),
             'authorized_at' => now()->toIso8601String(),
         ]);
 
         return redirect()
             ->route('tarjeta-digital.portal.show')
-            ->with('success', 'Listo. Tu tarjeta ya esta disponible para descarga.');
+            ->with('success', $records->count() === 1
+                ? 'Listo. Tu tarjeta ya esta disponible para descarga.'
+                : 'Listo. Encontramos tus tarjetas disponibles para descarga.');
     }
 
     public function accessPage(Request $request): View|RedirectResponse
     {
-        $record = $this->getAuthorizedRecord($request);
+        $records = $this->getAuthorizedRecords($request);
 
-        if ($record === null) {
+        if ($records->isEmpty()) {
             return redirect()
                 ->route('tarjeta-digital.portal.index')
                 ->with('error', 'Tu consulta ya vencio o aun no has encontrado una tarjeta.');
         }
 
         return view('tarjeta-digital.show', [
-            'record' => $record,
+            'records' => $records,
             'accessTtlMinutes' => self::ACCESS_TTL_MINUTES,
         ]);
     }
 
-    public function downloadCard(Request $request)
+    public function downloadCard(Request $request, PlanoSaldoValor $record)
     {
-        $record = $this->getAuthorizedRecord($request);
-
-        if ($record === null) {
+        if (!$this->isAuthorizedRecord($request, $record->id)) {
             return redirect()
                 ->route('tarjeta-digital.portal.index')
                 ->with('error', 'Tu consulta ya vencio. Vuelve a ingresar los datos para descargar la tarjeta.');
@@ -124,12 +146,12 @@ class PortalTarjetaDigitalController extends Controller
             ->with('success', 'Puedes hacer otra consulta cuando quieras.');
     }
 
-    private function getAuthorizedRecord(Request $request): ?PlanoSaldoValor
+    private function getAuthorizedRecords(Request $request): Collection
     {
         $access = $request->session()->get(self::ACCESS_SESSION_KEY);
 
-        if (!is_array($access) || empty($access['record_id']) || empty($access['authorized_at'])) {
-            return null;
+        if (!is_array($access) || empty($access['record_ids']) || empty($access['authorized_at'])) {
+            return collect();
         }
 
         try {
@@ -137,24 +159,45 @@ class PortalTarjetaDigitalController extends Controller
         } catch (\Throwable) {
             $request->session()->forget(self::ACCESS_SESSION_KEY);
 
-            return null;
+            return collect();
         }
 
         if ($authorizedAt->copy()->addMinutes(self::ACCESS_TTL_MINUTES)->isPast()) {
             $request->session()->forget(self::ACCESS_SESSION_KEY);
 
-            return null;
+            return collect();
         }
 
-        $record = PlanoSaldoValor::query()->find($access['record_id']);
+        $recordIds = collect($access['record_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->values();
 
-        if ($record === null) {
+        if ($recordIds->isEmpty()) {
             $request->session()->forget(self::ACCESS_SESSION_KEY);
 
-            return null;
+            return collect();
         }
 
-        return $record;
+        $records = PlanoSaldoValor::query()
+            ->whereIn('id', $recordIds->all())
+            ->orderByDesc('fecha_vigencia')
+            ->orderBy('obligacion')
+            ->get();
+
+        if ($records->isEmpty()) {
+            $request->session()->forget(self::ACCESS_SESSION_KEY);
+
+            return collect();
+        }
+
+        return $records;
+    }
+
+    private function isAuthorizedRecord(Request $request, int $recordId): bool
+    {
+        return $this->getAuthorizedRecords($request)
+            ->contains(fn (PlanoSaldoValor $record): bool => $record->id === $recordId);
     }
 
     private function ensureIsNotRateLimited(Request $request): void
@@ -180,10 +223,10 @@ class PortalTarjetaDigitalController extends Controller
     private function rateLimitKey(Request $request): string
     {
         $documento = $this->normalizeKey((string) $request->input('documento', ''));
-        $credito = $this->normalizeKey((string) $request->input('credito', ''));
+        $fechaNacimiento = $this->normalizeDateInput((string) $request->input('fecha_nacimiento', ''))?->toDateString() ?? '';
         $ip = (string) $request->ip();
 
-        return implode('|', ['tarjeta-digital', $ip, $documento, $credito]);
+        return implode('|', ['tarjeta-digital', $ip, $documento, $fechaNacimiento]);
     }
 
     private function normalizeKey(string $value): string
@@ -199,5 +242,28 @@ class PortalTarjetaDigitalController extends Controller
         }
 
         return str_replace(' ', '', $key);
+    }
+
+    private function normalizeDateInput(string $value): ?Carbon
+    {
+        $date = trim($value);
+
+        if ($date === '') {
+            return null;
+        }
+
+        foreach (['d/m/Y', 'd-m-Y', 'Y-m-d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $date);
+
+                if ($parsed !== false) {
+                    return $parsed->startOfDay();
+                }
+            } catch (\Throwable) {
+                // Continue with the next format.
+            }
+        }
+
+        return null;
     }
 }
