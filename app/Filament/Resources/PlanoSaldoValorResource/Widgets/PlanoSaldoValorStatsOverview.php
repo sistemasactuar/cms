@@ -25,7 +25,7 @@ class PlanoSaldoValorStatsOverview extends StatsOverviewWidget
                 ->icon('heroicon-o-exclamation-triangle')
                 ->color('danger'),
             Stat::make('Al Dia', number_format((clone $alDia)->count(), 0, ',', '.'))
-                ->description('Sin valor vencido pendiente')
+                ->description('Valor al dia total: ' . $this->formatCurrency((clone $alDia)->sum('saldo_capital')))
                 ->icon('heroicon-o-check-badge')
                 ->color('success'),
             Stat::make('Saldo Capital 0', number_format((clone $saldoCero)->count(), 0, ',', '.'))
