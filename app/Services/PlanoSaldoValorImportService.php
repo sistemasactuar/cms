@@ -597,6 +597,10 @@ class PlanoSaldoValorImportService
             return [round($valorVencido, 2), 'Valor vencido'];
         }
 
+        if ($valorVencido < $valorCuota) {
+            return [round($valorCuota + $valorVencido, 2), 'Cuota + vencido'];
+        }
+
         return [round($valorCuota, 2), 'Valor cuota'];
     }
 

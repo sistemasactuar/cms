@@ -34,6 +34,11 @@ class PlanoCarteraResource extends Resource
     protected static ?string $navigationGroup = 'ERP';
     protected static ?string $navigationLabel = 'Plano de Cartera';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Form $form): Form
     {
         return $form

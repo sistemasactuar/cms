@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -44,5 +45,43 @@ class PlanoSaldoValor extends Model
     public function saldosDiarios(): HasMany
     {
         return $this->hasMany(PlanoSaldoValorSaldoDiario::class, 'plano_saldo_valor_id');
+    }
+
+    public function getEstadoSeguimientoAttribute(): string
+    {
+        if ($this->estado_registro === 'saldo_cero' || (float) ($this->saldo_capital ?? 0) <= 0) {
+            return 'saldo_cero';
+        }
+
+        return (float) ($this->valor_vencido ?? 0) > 0
+            ? 'saldo_vencido'
+            : 'al_dia';
+    }
+
+    public function scopeConSaldoVencido(Builder $query): Builder
+    {
+        return $query
+            ->where('saldo_capital', '>', 0)
+            ->where('valor_vencido', '>', 0);
+    }
+
+    public function scopeAlDia(Builder $query): Builder
+    {
+        return $query
+            ->where('saldo_capital', '>', 0)
+            ->where(function (Builder $builder): void {
+                $builder
+                    ->whereNull('valor_vencido')
+                    ->orWhere('valor_vencido', '<=', 0);
+            });
+    }
+
+    public function scopeConSaldoCero(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder
+                ->where('estado_registro', 'saldo_cero')
+                ->orWhere('saldo_capital', '<=', 0);
+        });
     }
 }

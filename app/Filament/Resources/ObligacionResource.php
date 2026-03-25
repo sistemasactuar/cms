@@ -24,6 +24,11 @@ class ObligacionResource extends Resource
     protected static ?string $navigationGroup = 'ERP';
     protected static ?string $navigationLabel = 'Obligaciones';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Forms\Form $form): Forms\Form
     {
         return $form

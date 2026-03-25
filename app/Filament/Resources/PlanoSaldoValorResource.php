@@ -21,8 +21,9 @@ class PlanoSaldoValorResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationGroup = 'ERP';
-    protected static ?string $navigationLabel = 'Plano Saldos y Valores';
+    protected static ?string $navigationLabel = 'Reporte Saldos y Valores';
     protected static ?string $modelLabel = 'Saldos y Valores';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -65,7 +66,7 @@ class PlanoSaldoValorResource extends Resource
                 Forms\Components\DatePicker::make('fecha_entrada_plano')
                     ->label('Fecha entrada plano'),
                 Forms\Components\TextInput::make('estado_registro')
-                    ->label('Estado registro'),
+                    ->label('Estado tecnico'),
                 Forms\Components\TextInput::make('observacion')
                     ->label('Observacion'),
                 Forms\Components\DatePicker::make('fecha_vigencia')
@@ -91,9 +92,18 @@ class PlanoSaldoValorResource extends Resource
                 Tables\Columns\TextColumn::make('valor_vencido')->money('COP')->sortable(),
                 Tables\Columns\TextColumn::make('saldo_capital')->money('COP')->sortable(),
                 Tables\Columns\TextColumn::make('dias_mora')->numeric()->sortable()->label('Dias mora'),
+                Tables\Columns\TextColumn::make('estado_seguimiento')
+                    ->label('Estado cartera')
+                    ->badge()
+                    ->formatStateUsing(fn(string $state): string => static::getEstadoSeguimientoLabel($state))
+                    ->color(fn(string $state): string => static::getEstadoSeguimientoColor($state)),
                 Tables\Columns\TextColumn::make('modalidad')->sortable(),
                 Tables\Columns\TextColumn::make('origen_registro')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('estado_registro')->badge()->sortable(),
+                Tables\Columns\TextColumn::make('estado_registro')
+                    ->label('Estado tecnico')
+                    ->badge()
+                    ->color(fn(string $state): string => $state === 'saldo_cero' ? 'warning' : 'primary')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('fecha_entrada_plano')->date()->sortable()->label('Ingreso plano'),
                 Tables\Columns\TextColumn::make('periodo')->sortable(),
                 Tables\Columns\TextColumn::make('fecha_vigencia')->date()->sortable(),
@@ -118,6 +128,17 @@ class PlanoSaldoValorResource extends Resource
                                 fn(Builder $query, $date): Builder => $query->whereDate('fecha_vigencia', '<=', $date),
                             );
                     }),
+                Tables\Filters\SelectFilter::make('estado_seguimiento')
+                    ->label('Estado cartera')
+                    ->options(static::getEstadoSeguimientoOptions())
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'saldo_vencido' => $query->conSaldoVencido(),
+                            'al_dia' => $query->alDia(),
+                            'saldo_cero' => $query->conSaldoCero(),
+                            default => $query,
+                        };
+                    }),
                 Tables\Filters\SelectFilter::make('origen_registro')
                     ->options([
                         'mensual' => 'Mensual',
@@ -125,6 +146,7 @@ class PlanoSaldoValorResource extends Resource
                         'saldos_diario' => 'Solo saldos diario',
                     ]),
                 Tables\Filters\SelectFilter::make('estado_registro')
+                    ->label('Estado tecnico')
                     ->options([
                         'activo' => 'Activo',
                         'saldo_cero' => 'Saldo capital 0',
@@ -278,5 +300,29 @@ class PlanoSaldoValorResource extends Resource
         return [
             'index' => Pages\ManagePlanoSaldoValors::route('/'),
         ];
+    }
+
+    public static function getEstadoSeguimientoOptions(): array
+    {
+        return [
+            'saldo_vencido' => 'Con saldo vencido',
+            'al_dia' => 'Al dia',
+            'saldo_cero' => 'Saldo capital 0',
+        ];
+    }
+
+    public static function getEstadoSeguimientoLabel(string $state): string
+    {
+        return static::getEstadoSeguimientoOptions()[$state] ?? 'Sin clasificar';
+    }
+
+    public static function getEstadoSeguimientoColor(string $state): string
+    {
+        return match ($state) {
+            'saldo_vencido' => 'danger',
+            'al_dia' => 'success',
+            'saldo_cero' => 'warning',
+            default => 'gray',
+        };
     }
 }

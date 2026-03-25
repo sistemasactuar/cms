@@ -122,9 +122,9 @@ class PlanoSaldoValorImportServiceTest extends TestCase
             ->where('obligacion', '1002')
             ->firstOrFail();
 
-        $this->assertSame(150000.0, (float) $creditoConCuotaMayor->valor_reportar);
+        $this->assertSame(270000.0, (float) $creditoConCuotaMayor->valor_reportar);
         $this->assertSame(150000.0, (float) $creditoConCuotaMayor->valor_cuota);
-        $this->assertSame('Valor cuota', $creditoConCuotaMayor->observacion);
+        $this->assertSame('Cuota + vencido', $creditoConCuotaMayor->observacion);
 
         $creditoPostCierre = PlanoSaldoValor::query()
             ->where('obligacion', '1004')
@@ -236,6 +236,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
 
         $this->assertSame(90000.0, (float) $record->valor_vencido);
         $this->assertSame(720000.0, (float) $record->saldo_capital);
+        $this->assertSame(210000.0, (float) $record->valor_reportar);
         $this->assertSame('disminuyo', $record->ultimo_estado_saldo_diario);
 
         $snapshots = PlanoSaldoValorSaldoDiario::query()
@@ -247,6 +248,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertCount(2, $snapshots);
         $this->assertSame('nuevo', $snapshots[0]->estado_movimiento);
         $this->assertSame('disminuyo', $snapshots[1]->estado_movimiento);
+        $this->assertSame(210000.0, (float) $snapshots[1]->valor_reportar);
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_valor_vencido);
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_saldo_capital);
     }
