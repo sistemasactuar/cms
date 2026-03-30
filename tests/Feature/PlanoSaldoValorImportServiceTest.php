@@ -323,6 +323,35 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame($totalRegistros, $totalDataRowsGou);
     }
 
+    public function test_it_can_export_a_zip_from_current_database_records(): void
+    {
+        $carteraPath = $this->createCsv([
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+            ['8101', '9911', 'CLIENTE ACTUAL', '98000', '450000', 'MICROCREDITO'],
+        ]);
+
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['8101', '9911', '15000', '410000', '4'],
+        ]);
+
+        app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $resultado = app(PlanoSaldoValorImportService::class)->exportFromDatabase('2026-03-24');
+
+        $this->assertSame(1, $resultado['procesados']);
+        $this->assertSame('2026-03-24', $resultado['fecha_vigencia']);
+        $this->assertFileExists($resultado['zip_path']);
+        $this->assertSame([
+            'archivo_Re.csv',
+            'archivo_Gou.csv',
+        ], $this->listZipEntries($resultado['zip_path']));
+    }
+
     private function createCsv(array $rows, string $delimiter = ';'): string
     {
         $path = tempnam(sys_get_temp_dir(), 'plano_saldo_valor_');

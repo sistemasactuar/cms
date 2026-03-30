@@ -287,23 +287,7 @@ class PlanoSaldoValorResource extends Resource
                             ->send();
 
                         if (is_string($zipPath) && file_exists($zipPath)) {
-                            $token = (string) Str::uuid();
-                            $downloadName = basename($zipPath);
-
-                            Cache::put(
-                                PlanoSaldoValorExportDownloadController::makeCacheKey($token),
-                                [
-                                    'path' => $zipPath,
-                                    'name' => $downloadName,
-                                ],
-                                now()->addMinutes(15),
-                            );
-
-                            return redirect(URL::temporarySignedRoute(
-                                'admin.plano-saldo-valors.download',
-                                now()->addMinutes(15),
-                                ['token' => $token],
-                            ));
+                            return static::prepareZipDownload($zipPath);
                         }
 
                         Notification::make()
@@ -311,6 +295,52 @@ class PlanoSaldoValorResource extends Resource
                             ->body("Se procesaron {$procesados} registros, pero no se generaron archivos de salida.")
                             ->warning()
                             ->send();
+                    }),
+                Tables\Actions\Action::make('descargarZipActual')
+                    ->label('Descargar ZIP actual')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->form([
+                        Forms\Components\DatePicker::make('fecha_vigencia')
+                            ->label('Fecha vigencia a exportar')
+                            ->default(fn() => PlanoSaldoValor::query()->max('fecha_vigencia'))
+                            ->helperText('Opcional. Si no cambias la fecha, se usa el ultimo corte guardado en la base de datos.')
+                            ->required(false),
+                    ])
+                    ->action(function (array $data) {
+                        try {
+                            $resultado = app(PlanoSaldoValorImportService::class)->exportFromDatabase(
+                                $data['fecha_vigencia'] ?? null,
+                            );
+                        } catch (\Throwable $exception) {
+                            Notification::make()
+                                ->title('Error al generar el ZIP')
+                                ->body($exception->getMessage())
+                                ->danger()
+                                ->send();
+                            return null;
+                        }
+
+                        $procesados = (int) ($resultado['procesados'] ?? 0);
+                        $fechaVigencia = (string) ($resultado['fecha_vigencia'] ?? '');
+                        $zipPath = $resultado['zip_path'] ?? null;
+
+                        if ($procesados <= 0 || !is_string($zipPath) || !file_exists($zipPath)) {
+                            Notification::make()
+                                ->title('Sin archivos para exportar')
+                                ->body('No encontramos registros vigentes para generar el ZIP desde la base de datos.')
+                                ->warning()
+                                ->send();
+                            return null;
+                        }
+
+                        Notification::make()
+                            ->title('ZIP generado')
+                            ->body("Se prepararon {$procesados} registros para la vigencia {$fechaVigencia}.")
+                            ->success()
+                            ->send();
+
+                        return static::prepareZipDownload($zipPath);
                     }),
             ]);
     }
@@ -344,5 +374,26 @@ class PlanoSaldoValorResource extends Resource
             'saldo_cero' => 'warning',
             default => 'gray',
         };
+    }
+
+    protected static function prepareZipDownload(string $zipPath)
+    {
+        $token = (string) Str::uuid();
+        $downloadName = basename($zipPath);
+
+        Cache::put(
+            PlanoSaldoValorExportDownloadController::makeCacheKey($token),
+            [
+                'path' => $zipPath,
+                'name' => $downloadName,
+            ],
+            now()->addMinutes(15),
+        );
+
+        return redirect(URL::temporarySignedRoute(
+            'admin.plano-saldo-valors.download',
+            now()->addMinutes(15),
+            ['token' => $token],
+        ));
     }
 }

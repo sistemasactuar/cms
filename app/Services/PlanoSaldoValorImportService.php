@@ -12,6 +12,50 @@ use ZipArchive;
 
 class PlanoSaldoValorImportService
 {
+    public function exportFromDatabase(mixed $fechaVigencia = null): array
+    {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
+        $fecha = $this->resolveFechaVigenciaExport($fechaVigencia);
+
+        $records = PlanoSaldoValor::query()
+            ->whereDate('fecha_vigencia', $fecha->toDateString())
+            ->where('saldo_capital', '>', 0)
+            ->where('valor_reportar', '>', 0)
+            ->orderBy('cc')
+            ->orderBy('obligacion')
+            ->get();
+
+        if ($records->isEmpty()) {
+            return [
+                'procesados' => 0,
+                'fecha_vigencia' => $fecha->toDateString(),
+                'zip_path' => null,
+            ];
+        }
+
+        $fechaConvArchivo = $fecha->format('Ymd');
+        $periodoFin = now()->addDay()->format('Ymd');
+        $datosRe = [];
+        $datosGou = [];
+
+        foreach ($records as $record) {
+            $exportRows = $this->buildExportRowsFromRecord($record, $fechaConvArchivo, $periodoFin);
+            $rowKey = $record->cc . '|' . $record->obligacion;
+
+            $datosRe[$rowKey] = $exportRows['datos_re'];
+            $datosGou[$rowKey] = $exportRows['datos_gou'];
+        }
+
+        return [
+            'procesados' => count($datosRe),
+            'fecha_vigencia' => $fecha->toDateString(),
+            'zip_path' => $this->createZip(array_values($datosRe), array_values($datosGou), $fechaConvArchivo),
+        ];
+    }
+
     public function import(
         string $carteraPath,
         string $saldosPath,
@@ -310,14 +354,67 @@ class PlanoSaldoValorImportService
         $record->fill($payload);
         $record->save();
 
-        $valorReportarEntero = (int) round($valorReportar);
-        $rowKey = $cc . '|' . $obligacion;
-        $exportNames = $this->prepareExportNames($nombres, $apellidos, $carteraRow, $saldosRow);
-
         return [
             'status' => $alreadyExists ? 'updated' : 'created',
-            'row_key' => $rowKey,
+            'row_key' => $cc . '|' . $obligacion,
             'record' => $record,
+            ...$this->buildExportRows(
+                $cc,
+                $obligacion,
+                $nombres,
+                $apellidos,
+                $valorReportar,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $observacion,
+                $carteraRow,
+                $saldosRow,
+            ),
+        ];
+    }
+
+    private function buildExportRowsFromRecord(
+        PlanoSaldoValor $record,
+        string $fechaConvArchivo,
+        string $periodoFin
+    ): array {
+        $periodo = trim((string) $record->periodo);
+
+        if ($periodo === '') {
+            $periodo = $this->parseDate($record->fecha_vigencia)?->format('Ym') ?? '';
+        }
+
+        return $this->buildExportRows(
+            (string) $record->cc,
+            (string) $record->obligacion,
+            (string) ($record->nombres ?? ''),
+            (string) ($record->apellidos ?? ''),
+            (float) ($record->valor_reportar ?? 0),
+            $periodo,
+            $fechaConvArchivo,
+            $periodoFin,
+            (string) ($record->observacion ?? ''),
+            ['NOMBRE_COMPLETO' => trim(((string) ($record->nombres ?? '')) . ' ' . ((string) ($record->apellidos ?? '')))],
+        );
+    }
+
+    private function buildExportRows(
+        string $cc,
+        string $obligacion,
+        string $nombres,
+        string $apellidos,
+        float $valorReportar,
+        string $periodo,
+        string $fechaConvArchivo,
+        string $periodoFin,
+        string $observacion,
+        ?array ...$rows
+    ): array {
+        $valorReportarEntero = (int) round($valorReportar);
+        $exportNames = $this->prepareExportNames($nombres, $apellidos, ...$rows);
+
+        return [
             'datos_re' => [
                 'ID_ENTIDAD' => 9,
                 'ID_SUCURSAL' => 1,
@@ -345,6 +442,27 @@ class PlanoSaldoValorImportService
                 'tipo_pago' => 0,
             ],
         ];
+    }
+
+    private function resolveFechaVigenciaExport(mixed $fechaVigencia = null): Carbon
+    {
+        $fecha = $this->parseDate($fechaVigencia);
+
+        if ($fecha instanceof Carbon) {
+            return $fecha;
+        }
+
+        $latestFechaVigencia = PlanoSaldoValor::query()
+            ->whereNotNull('fecha_vigencia')
+            ->max('fecha_vigencia');
+
+        $fecha = $this->parseDate($latestFechaVigencia);
+
+        if ($fecha instanceof Carbon) {
+            return $fecha;
+        }
+
+        throw new RuntimeException('No hay registros con fecha de vigencia para generar el ZIP.');
     }
 
     private function indexRows(string $path): array
