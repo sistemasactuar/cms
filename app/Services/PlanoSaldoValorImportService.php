@@ -7,6 +7,7 @@ use App\Models\PlanoSaldoValorSaldoDiario;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 use SplFileObject;
+use Throwable;
 use ZipArchive;
 
 class PlanoSaldoValorImportService
@@ -18,6 +19,10 @@ class PlanoSaldoValorImportService
         ?string $postCierrePath = null
     ): array
     {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(0);
+        }
+
         if (!is_file($carteraPath)) {
             throw new RuntimeException('No se encontro el archivo de cartera.');
         }
@@ -391,7 +396,7 @@ class PlanoSaldoValorImportService
     private function createZip(array $datosRe, array $datosGou, string $fechaConvArchivo): string
     {
         $zip = new ZipArchive();
-        $directory = storage_path('app/public');
+        $directory = storage_path('app/temp/plano-saldo-valors');
 
         if (!is_dir($directory) && !mkdir($directory, 0777, true) && !is_dir($directory)) {
             throw new RuntimeException('No fue posible preparar el directorio de salida para el ZIP.');
@@ -399,54 +404,114 @@ class PlanoSaldoValorImportService
 
         $zipFileName = 'planos_procesados_' . now()->format('Ymd_His_u') . '_' . bin2hex(random_bytes(4)) . '.zip';
         $zipPath = $directory . DIRECTORY_SEPARATOR . $zipFileName;
+        $csvRePath = $this->createTempCsvPath($directory, 're_');
+        $csvGouPath = $this->createTempCsvPath($directory, 'gou_');
 
-        if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
-            throw new RuntimeException('No fue posible crear el archivo ZIP de salida.');
+        try {
+            $this->writeCsvReFile($csvRePath, $datosRe);
+            $this->writeCsvGouFile($csvGouPath, $datosGou, $fechaConvArchivo);
+
+            if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new RuntimeException('No fue posible crear el archivo ZIP de salida.');
+            }
+
+            if (!$zip->addFile($csvRePath, 'archivo_Re.csv')) {
+                throw new RuntimeException('No fue posible agregar archivo_Re.csv al ZIP.');
+            }
+
+            if (!$zip->addFile($csvGouPath, 'archivo_Gou.csv')) {
+                throw new RuntimeException('No fue posible agregar archivo_Gou.csv al ZIP.');
+            }
+
+            if (!$zip->close()) {
+                throw new RuntimeException('No fue posible cerrar correctamente el archivo ZIP de salida.');
+            }
+
+            return $zipPath;
+        } catch (Throwable $exception) {
+            if (is_file($zipPath)) {
+                @unlink($zipPath);
+            }
+
+            throw $exception;
+        } finally {
+            if (is_file($csvRePath)) {
+                @unlink($csvRePath);
+            }
+
+            if (is_file($csvGouPath)) {
+                @unlink($csvGouPath);
+            }
+        }
+    }
+
+    private function createTempCsvPath(string $directory, string $prefix): string
+    {
+        $path = tempnam($directory, $prefix);
+
+        if ($path === false) {
+            throw new RuntimeException('No fue posible crear un archivo temporal para el ZIP.');
         }
 
-        $csvRe = fopen('php://temp', 'r+');
-        fwrite($csvRe, "\xEF\xBB\xBF");
-        fputcsv($csvRe, array_keys($datosRe[0]));
-        foreach ($datosRe as $row) {
-            fputcsv($csvRe, $row);
-        }
-        rewind($csvRe);
-        $zip->addFromString('archivo_Re.csv', stream_get_contents($csvRe));
-        fclose($csvRe);
+        return $path;
+    }
 
-        $csvGou = fopen('php://temp', 'r+');
-        fwrite($csvGou, "\xEF\xBB\xBF");
+    private function writeCsvReFile(string $path, array $datosRe): void
+    {
+        $handle = fopen($path, 'wb');
 
-        $sumaTotal = 0;
-        foreach ($datosGou as $dg) {
-            $sumaTotal += (int) $dg['valor_reportar'];
+        if ($handle === false) {
+            throw new RuntimeException('No fue posible preparar archivo_Re.csv temporal.');
         }
 
-        $headerGou = [
-            $fechaConvArchivo,
-            '1000',
-            'A',
-            '8000803428',
-            count($datosGou),
-            '0',
-            'RECAUDOS MICROSITIO CERRADO',
-            $sumaTotal . '00',
-        ];
+        try {
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, array_keys($datosRe[0]));
 
-        fputcsv($csvGou, $headerGou);
+            foreach ($datosRe as $row) {
+                fputcsv($handle, $row);
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
 
-        foreach ($datosGou as $dg) {
-            $dg['valor_reportar'] = ((int) $dg['valor_reportar']) . '00';
-            fputcsv($csvGou, $dg);
+    private function writeCsvGouFile(string $path, array $datosGou, string $fechaConvArchivo): void
+    {
+        $handle = fopen($path, 'wb');
+
+        if ($handle === false) {
+            throw new RuntimeException('No fue posible preparar archivo_Gou.csv temporal.');
         }
 
-        rewind($csvGou);
-        $zip->addFromString('archivo_Gou.csv', stream_get_contents($csvGou));
-        fclose($csvGou);
+        try {
+            fwrite($handle, "\xEF\xBB\xBF");
 
-        $zip->close();
+            $sumaTotal = 0;
+            foreach ($datosGou as $dg) {
+                $sumaTotal += (int) $dg['valor_reportar'];
+            }
 
-        return $zipPath;
+            $headerGou = [
+                $fechaConvArchivo,
+                '1000',
+                'A',
+                '8000803428',
+                count($datosGou),
+                '0',
+                'RECAUDOS MICROSITIO CERRADO',
+                $sumaTotal . '00',
+            ];
+
+            fputcsv($handle, $headerGou);
+
+            foreach ($datosGou as $dg) {
+                $dg['valor_reportar'] = ((int) $dg['valor_reportar']) . '00';
+                fputcsv($handle, $dg);
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
     private function recordSaldoDiario(

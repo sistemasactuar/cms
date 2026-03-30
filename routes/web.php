@@ -4,6 +4,7 @@ use App\Models\Responsable;
 use Illuminate\Http\Request; //
 use App\Models\EvaluacionProveedor;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PlanoSaldoValorExportDownloadController;
 use App\Http\Controllers\PortalMediaController;
 use App\Http\Controllers\PortalTarjetaDigitalController;
 use App\Http\Controllers\PortalVotacionController;
@@ -145,6 +146,11 @@ Route::get('/tarjeta-digital/descargar/{record}', [PortalTarjetaDigitalControlle
 
 Route::post('/tarjeta-digital/salir', [PortalTarjetaDigitalController::class, 'clearAccess'])
     ->name('tarjeta-digital.portal.logout');
+
+Route::middleware(['auth', 'signed'])->get(
+    '/admin/plano-saldo-valors/descargar-zip/{token}',
+    PlanoSaldoValorExportDownloadController::class
+)->name('admin.plano-saldo-valors.download');
 
 Route::middleware('aportante.auth')->group(function (): void {
     Route::get('/votaciones/panel', [PortalVotacionController::class, 'dashboard'])

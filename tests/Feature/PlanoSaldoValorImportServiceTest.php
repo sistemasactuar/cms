@@ -253,6 +253,57 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_saldo_capital);
     }
 
+    public function test_it_generates_complete_zip_files_for_more_than_two_thousand_rows(): void
+    {
+        $totalRegistros = 2050;
+        $carteraRows = [
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+        ];
+        $saldosRows = [
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+        ];
+
+        for ($i = 1; $i <= $totalRegistros; $i++) {
+            $obligacion = (string) (700000 + $i);
+            $documento = (string) (9000000 + $i);
+
+            $carteraRows[] = [
+                $obligacion,
+                $documento,
+                'CLIENTE ' . $i,
+                '100000',
+                '500000',
+                'MICROCREDITO',
+            ];
+
+            $saldosRows[] = [
+                $obligacion,
+                $documento,
+                '25000',
+                '450000',
+                '5',
+            ];
+        }
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            $this->createCsv($carteraRows),
+            $this->createCsv($saldosRows),
+            '2026-03-24',
+        );
+
+        $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
+        $contenidoGou = $this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv');
+
+        $rowsRe = $this->parseCsvContent($contenidoRe);
+        $rowsGou = $this->parseCsvContent($contenidoGou);
+
+        $this->assertCount($totalRegistros + 1, $rowsRe);
+        $this->assertCount($totalRegistros + 1, $rowsGou);
+        $this->assertSame((string) $totalRegistros, $rowsGou[0][4]);
+        $this->assertSame('700001', $rowsRe[1][2]);
+        $this->assertSame((string) (700000 + $totalRegistros), $rowsRe[$totalRegistros][2]);
+    }
+
     private function createCsv(array $rows, string $delimiter = ';'): string
     {
         $path = tempnam(sys_get_temp_dir(), 'plano_saldo_valor_');

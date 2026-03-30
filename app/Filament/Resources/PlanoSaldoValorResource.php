@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\PlanoSaldoValorResource\Pages;
+use App\Http\Controllers\PlanoSaldoValorExportDownloadController;
 use App\Models\PlanoSaldoValor;
 use App\Services\PlanoSaldoValorCardImageService;
 use App\Services\PlanoSaldoValorImportService;
@@ -13,7 +14,10 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class PlanoSaldoValorResource extends Resource
 {
@@ -283,7 +287,23 @@ class PlanoSaldoValorResource extends Resource
                             ->send();
 
                         if (is_string($zipPath) && file_exists($zipPath)) {
-                            return response()->download($zipPath)->deleteFileAfterSend(true);
+                            $token = (string) Str::uuid();
+                            $downloadName = basename($zipPath);
+
+                            Cache::put(
+                                PlanoSaldoValorExportDownloadController::makeCacheKey($token),
+                                [
+                                    'path' => $zipPath,
+                                    'name' => $downloadName,
+                                ],
+                                now()->addMinutes(15),
+                            );
+
+                            return redirect(URL::temporarySignedRoute(
+                                'admin.plano-saldo-valors.download',
+                                now()->addMinutes(15),
+                                ['token' => $token],
+                            ));
                         }
 
                         Notification::make()
