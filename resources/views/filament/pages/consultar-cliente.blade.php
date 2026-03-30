@@ -44,7 +44,8 @@
         <div class="p-6 bg-white rounded-lg shadow dark:bg-gray-800 flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                    {{ $infoBasica['PRIMER_NOMBRE'] ?? '' }} {{ $infoBasica['PRIMER_APELLIDO'] ?? 'Cliente' }}
+                    {{ $infoBasica['PRIMER_NOMBRE_CLIENTE'] ?? $infoBasica['PRIMER_NOMBRE'] ?? '' }}
+                    {{ $infoBasica['PRIMER_APELLIDO_CLIENTE'] ?? $infoBasica['PRIMER_APELLIDO'] ?? 'Cliente' }}
                 </h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400">
                     ID: {{ $identificacion }}

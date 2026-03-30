@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('obligaciones')) {
+            return;
+        }
+
         Schema::create('obligaciones', function (Blueprint $table) {
     $table->string('Obligacion', 20)->primary();
     $table->string('Cedula_Cliente', 20);

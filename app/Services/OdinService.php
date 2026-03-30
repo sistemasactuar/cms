@@ -2,132 +2,231 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class OdinService
 {
-    protected string $baseUrl = 'https://odin.selsacloud.com/linix/v7/38eb463e-cf8a-4c31-ab2e-eb18674726ed';
-
     public function authenticate(): ?array
     {
-        return Cache::remember('odin_auth_data', 3600, function () {
-            // Reverting to standard Basic Auth + Empty Body
-            $response = Http::withoutVerifying()->asForm()
+        $cacheKey = 'odin_auth_data_' . md5($this->baseUrl() . '|' . $this->empresaUuid() . '|' . $this->realm());
+
+        return Cache::remember($cacheKey, 3300, function () {
+            $request = $this->baseHttp()
+                ->acceptJson()
+                ->asForm()
                 ->withBasicAuth(
-                    config('services.odin.client_id'),
-                    config('services.odin.client_secret')
-                )
-                ->post("{$this->baseUrl}/servicio/identidad/oauth2/token", [
-                    'grant_type' => 'client_credentials',
+                    (string) config('services.odin.client_id'),
+                    (string) config('services.odin.client_secret')
+                );
+
+            if ($this->realm() !== '') {
+                $request = $request->withHeaders([
+                    'realm' => $this->realm(),
                 ]);
+            }
+
+            $response = $request->post($this->baseUrl() . '/servicio/identidad/oauth2/token', [
+                'grant_type' => 'client_credentials',
+            ]);
 
             if ($response->successful()) {
                 return [
                     'token' => $response->json('access_token'),
-                    'realm' => $response->json('realm'), // Capture Realm
+                    'realm' => $response->json('realm') ?: config('services.odin.realm'),
                 ];
             }
 
             logger()->error('Error autenticando con ODIN', [
                 'response' => $response->body(),
                 'status' => $response->status(),
+                'base_url' => $this->baseUrl(),
+                'empresa_uuid' => $this->empresaUuid(),
+                'realm' => $this->realm(),
             ]);
 
             return null;
         });
     }
 
-    public function getTerceros()
+    public function getTerceros(): array
     {
-        $authData = $this->authenticate();
-
-        if (! $authData || empty($authData['token'])) {
-            throw new \Exception('Token de autenticación ODIN no disponible.');
-        }
-
-        $request = Http::withoutVerifying()->withToken($authData['token']);
-
-        // Add Realm header if available
-        if (!empty($authData['realm'])) {
-            $request->withHeaders([
-                'realm' => $authData['realm'],
-            ]);
-        }
-
-        $response = $request->get("{$this->baseUrl}/RUTA/TERCEROS");
-
-        return $response->json();
+        return $this->request('GET', '/RUTA/TERCEROS');
     }
 
-    public function getClienteByIdentificacion(string $identificacion)
+    public function getClienteByIdentificacion(string $identificacion): array
     {
-        return $this->get('/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente', [
+        return $this->request('GET', $this->crmClientePath(), [
             'identificacion' => $identificacion,
         ]);
     }
 
-    public function getClienteInformacionBasica(string $idCliente)
+    public function getClienteInformacionBasica(string $idCliente): array
     {
-        return $this->get("/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/informacion-basica");
+        return $this->request('GET', $this->crmClientePath("/{$idCliente}/informacion-basica"));
     }
 
-    public function getClienteEmpresa()
+    public function getClienteEmpresa(): array
     {
-        return $this->get('/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente');
+        return $this->request('GET', $this->crmClientePath());
     }
 
-    public function getClienteDireccion(string $idCliente)
+    public function getClienteDireccion(string $idCliente): array
     {
-        return $this->get("/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/informacion-contactos");
+        return $this->request('GET', $this->crmClientePath("/{$idCliente}/informacion-contactos"));
     }
 
-    public function getClienteVinculacion(string $idCliente)
+    public function getClienteVinculacion(string $idCliente): array
     {
-        return $this->get("/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/vinculacion");
+        return $this->request('GET', $this->crmClientePath("/{$idCliente}/vinculacion"));
     }
 
-    public function getClienteInfoLaboral(string $idCliente)
+    public function getClienteInfoLaboral(string $idCliente): array
     {
-        return $this->get("/datos/crm/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/informacion-laboral");
+        return $this->request('GET', $this->crmClientePath("/{$idCliente}/informacion-laboral"));
     }
 
-    public function getEstatutaria(string $idCliente)
+    public function getEstatutaria(string $idCliente): array
     {
-        return $this->get("/datos/crm/aportes/estatutario/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/obligacion");
+        return $this->request('GET', "/datos/crm/aportes/estatutario/empresa/{$this->empresaUuid()}/cliente/{$idCliente}/obligacion");
     }
 
-    public function getObligacion(string $idCliente)
+    public function getObligacion(string $idCliente): array
     {
-        return $this->get("/datos/crm/cartera/empresa/38eb463e-cf8a-4c31-ab2e-eb18674726ed/cliente/{$idCliente}/obligacion");
+        return $this->request('GET', "/datos/crm/cartera/empresa/{$this->empresaUuid()}/cliente/{$idCliente}/obligacion");
     }
 
-    protected function get(string $endpoint, array $query = [])
+    public function createIncluirtecVinculacion(array $payload): array
     {
+        return $this->request(
+            'POST',
+            "/erp/servicio/workflow/funcionalidad/{$this->workflowFuncionalidadVinculacion()}/programacion",
+            payload: $payload
+        );
+    }
+
+    protected function request(
+        string $method,
+        string $endpoint,
+        array $query = [],
+        array $payload = [],
+        array $headers = []
+    ): array {
         $authData = $this->authenticate();
 
         if (! $authData || empty($authData['token'])) {
-            throw new \Exception('Token de autenticación ODIN no disponible.');
+            throw new \RuntimeException('Token de autenticación ODIN no disponible.');
         }
 
-        $request = Http::withoutVerifying()->withToken($authData['token']);
-
-        // Add Realm header if available
-        if (!empty($authData['realm'])) {
-            $request->withHeaders([
-                'realm' => $authData['realm'],
-            ]);
+        $request = $this->authorizedHttp((string) $authData['token'], (string) ($authData['realm'] ?? ''));
+        if ($headers !== []) {
+            $request = $request->withHeaders($headers);
         }
 
-        $response = $request->get($this->baseUrl . $endpoint, $query);
+        $url = $this->baseUrl() . $endpoint;
+        $method = strtoupper($method);
+
+        $response = match ($method) {
+            'GET' => $request->get($url, $query),
+            'POST' => $request->asJson()->post($url, $payload),
+            'PUT' => $request->asJson()->put($url, $payload),
+            'PATCH' => $request->asJson()->patch($url, $payload),
+            'DELETE' => $request->delete($url, $query),
+            default => throw new \InvalidArgumentException("Metodo HTTP no soportado: {$method}"),
+        };
+
+        return $this->decodeResponse($response, $endpoint, $method);
+    }
+
+    protected function decodeResponse(Response $response, string $endpoint, string $method): array
+    {
+        $json = $response->json();
 
         if ($response->failed()) {
-            logger()->error("Error en solicitud ODIN: {$endpoint}", [
+            logger()->error("Error en solicitud ODIN: {$method} {$endpoint}", [
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
+
+            if (is_array($json)) {
+                return array_merge($json, [
+                    '_failed' => true,
+                    '_status' => $response->status(),
+                ]);
+            }
+
+            return [
+                '_failed' => true,
+                '_status' => $response->status(),
+                '_body' => $response->body(),
+            ];
         }
 
-        return $response->json();
+        if (is_array($json)) {
+            return $json;
+        }
+
+        return [
+            '_status' => $response->status(),
+            '_body' => $response->body(),
+        ];
+    }
+
+    protected function authorizedHttp(string $token, string $realm = ''): PendingRequest
+    {
+        $headers = [];
+        $realm = trim($realm) !== '' ? $realm : (string) config('services.odin.realm', '');
+
+        if ($realm !== '') {
+            $headers['realm'] = $realm;
+        }
+
+        return $this->baseHttp()
+            ->acceptJson()
+            ->withToken($token)
+            ->withHeaders($headers);
+    }
+
+    protected function baseHttp(): PendingRequest
+    {
+        $request = Http::timeout(60);
+
+        if (! $this->verifySsl()) {
+            $request = $request->withoutVerifying();
+        }
+
+        return $request;
+    }
+
+    protected function crmClientePath(string $suffix = ''): string
+    {
+        return "/datos/crm/empresa/{$this->empresaUuid()}/cliente{$suffix}";
+    }
+
+    protected function baseUrl(): string
+    {
+        return rtrim((string) config('services.odin.base_url'), '/');
+    }
+
+    protected function empresaUuid(): string
+    {
+        return (string) config('services.odin.empresa_uuid');
+    }
+
+    protected function workflowFuncionalidadVinculacion(): string
+    {
+        return (string) config('services.odin.workflow_funcionalidad_vinculacion', '6');
+    }
+
+    protected function realm(): string
+    {
+        return trim((string) config('services.odin.realm', ''));
+    }
+
+    protected function verifySsl(): bool
+    {
+        return (bool) config('services.odin.verify_ssl', false);
     }
 }

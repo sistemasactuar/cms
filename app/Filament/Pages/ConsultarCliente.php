@@ -51,17 +51,8 @@ class ConsultarCliente extends Page
         $this->resetData();
 
         try {
-            // 1. Get Client basic lookup
             $clienteResp = $odinService->getClienteByIdentificacion($this->identificacion);
-
-            // Check if we got a valid response structure. 
-            // NOTE: Adapting logic to whatever the real API returns. 
-            // Assuming $clienteResp contains an 'items' array or is the item itself.
-            // For this implementation, I'll store the raw response to debug in view if needed, 
-            // but ideally we need the 'id' (internal ID) for subsequent calls.
-
-            // Heuristic to find ID:
-            $idCliente = $clienteResp['id'] ?? $clienteResp['items'][0]['id'] ?? null;
+            $idCliente = $this->extractClientId($clienteResp);
 
             if (!$idCliente) {
                 Notification::make()
@@ -72,21 +63,13 @@ class ConsultarCliente extends Page
                 return;
             }
 
-            $this->cliente = $clienteResp;
-
-            // 2. Fetch all other details in parallel or sequence
-            // Using sequence for simplicity and error isolation
-
-            $this->infoBasica = $odinService->getClienteInformacionBasica($idCliente);
-            $this->direccion = $odinService->getClienteDireccion($idCliente);
-            $this->vinculacion = $odinService->getClienteVinculacion($idCliente);
-            $this->infoLaboral = $odinService->getClienteInfoLaboral($idCliente);
-            $this->estatutaria = $odinService->getEstatutaria($idCliente);
-
-            // 3. Fetch Obligations
-            $obligacionResp = $odinService->getObligacion($idCliente);
-            // Assuming obligations might be a list
-            $this->obligaciones = $obligacionResp['items'] ?? [$obligacionResp] ?? [];
+            $this->cliente = $this->extractFirstRow($clienteResp);
+            $this->infoBasica = $this->extractFirstRow($odinService->getClienteInformacionBasica($idCliente));
+            $this->direccion = $this->extractFirstRow($odinService->getClienteDireccion($idCliente));
+            $this->vinculacion = $this->extractFirstRow($odinService->getClienteVinculacion($idCliente));
+            $this->infoLaboral = $this->extractFirstRow($odinService->getClienteInfoLaboral($idCliente));
+            $this->estatutaria = $this->extractFirstRow($odinService->getEstatutaria($idCliente));
+            $this->obligaciones = $this->extractRows($odinService->getObligacion($idCliente));
 
             Notification::make()
                 ->title('Información cargada exitosamente')
@@ -113,5 +96,49 @@ class ConsultarCliente extends Page
         $this->infoLaboral = null;
         $this->estatutaria = null;
         $this->obligaciones = [];
+    }
+
+    protected function extractClientId(array $response): ?string
+    {
+        $row = $this->extractFirstRow($response);
+
+        return $row['codigoCliente']
+            ?? $row['CODIGO_CLIENTE']
+            ?? $row['id']
+            ?? null;
+    }
+
+    protected function extractFirstRow(array $response): ?array
+    {
+        if ($response === [] || ($response['_status'] ?? null) === 204) {
+            return null;
+        }
+
+        if (isset($response['items']) && is_array($response['items'])) {
+            return $response['items'][0] ?? null;
+        }
+
+        if (array_is_list($response)) {
+            return $response[0] ?? null;
+        }
+
+        return $response;
+    }
+
+    protected function extractRows(array $response): array
+    {
+        if ($response === [] || ($response['_status'] ?? null) === 204) {
+            return [];
+        }
+
+        if (isset($response['items']) && is_array($response['items'])) {
+            return $response['items'];
+        }
+
+        if (array_is_list($response)) {
+            return $response;
+        }
+
+        return [$response];
     }
 }

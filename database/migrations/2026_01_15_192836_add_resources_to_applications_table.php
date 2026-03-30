@@ -6,15 +6,58 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    private function hasColumn(string $column): bool
+    {
+        return Schema::hasColumn('applications', $column);
+    }
+
+    private function anchorFor(array $candidates, string $fallback = 'name'): string
+    {
+        foreach ($candidates as $candidate) {
+            if ($this->hasColumn($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $fallback;
+    }
+
     /**
      * Run the migrations.
      */
     public function up(): void
     {
-        Schema::table('applications', function (Blueprint $table) {
-            $table->json('manuals')->nullable()->after('url');
-            $table->json('videos')->nullable()->after('manuals');
-        });
+        if (!$this->hasColumn('url')) {
+            $anchor = $this->anchorFor(['version', 'description', 'name']);
+
+            Schema::table('applications', function (Blueprint $table) use ($anchor): void {
+                $table->string('url')->nullable()->after($anchor);
+            });
+        }
+
+        if (!$this->hasColumn('publico')) {
+            $anchor = $this->anchorFor(['url', 'status', 'version', 'name']);
+
+            Schema::table('applications', function (Blueprint $table) use ($anchor): void {
+                $table->boolean('publico')->default(true)->after($anchor);
+            });
+        }
+
+        if (!$this->hasColumn('manuals')) {
+            $anchor = $this->anchorFor(['publico', 'url', 'status', 'version', 'name']);
+
+            Schema::table('applications', function (Blueprint $table) use ($anchor): void {
+                $table->json('manuals')->nullable()->after($anchor);
+            });
+        }
+
+        if (!$this->hasColumn('videos')) {
+            $anchor = $this->anchorFor(['manuals', 'publico', 'url', 'status', 'version', 'name']);
+
+            Schema::table('applications', function (Blueprint $table) use ($anchor): void {
+                $table->json('videos')->nullable()->after($anchor);
+            });
+        }
     }
 
     /**
@@ -22,8 +65,20 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('applications', function (Blueprint $table) {
-            $table->dropColumn(['manuals', 'videos']);
+        $columns = [];
+
+        foreach (['videos', 'manuals', 'publico', 'url'] as $column) {
+            if ($this->hasColumn($column)) {
+                $columns[] = $column;
+            }
+        }
+
+        if ($columns === []) {
+            return;
+        }
+
+        Schema::table('applications', function (Blueprint $table) use ($columns): void {
+            $table->dropColumn($columns);
         });
     }
 };

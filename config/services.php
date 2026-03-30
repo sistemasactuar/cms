@@ -36,8 +36,13 @@ return [
     ],
 
     'odin' => [
-    'client_id' => env('ODIN_CLIENT_ID'),
-    'client_secret' => env('ODIN_CLIENT_SECRET'),
+        'base_url' => env('ODIN_BASE_URL', 'https://odin.selsacloud.com/linix/v7/38eb463e-cf8a-4c31-ab2e-eb18674726ed'),
+        'empresa_uuid' => env('ODIN_EMPRESA_UUID', '38eb463e-cf8a-4c31-ab2e-eb18674726ed'),
+        'realm' => env('ODIN_REALM'),
+        'client_id' => env('ODIN_CLIENT_ID'),
+        'client_secret' => env('ODIN_CLIENT_SECRET'),
+        'verify_ssl' => filter_var(env('ODIN_VERIFY_SSL', false), FILTER_VALIDATE_BOOLEAN),
+        'workflow_funcionalidad_vinculacion' => env('ODIN_WORKFLOW_FUNCIONALIDAD_VINCULACION', '6'),
     ],
 
 

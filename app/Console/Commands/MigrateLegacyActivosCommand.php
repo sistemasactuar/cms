@@ -123,12 +123,23 @@ class MigrateLegacyActivosCommand extends Command
     private function configureLegacyConnection(): string
     {
         $connection = 'legacy_import';
+        $mysqlConfig = config('database.connections.mysql', []);
 
-        $legacyHost = $this->option('legacy-host') ?: env('LEGACY_DB_HOST', env('DB_HOST', '127.0.0.1'));
-        $legacyPort = $this->option('legacy-port') ?: env('LEGACY_DB_PORT', env('DB_PORT', '3306'));
+        $legacyHost = $this->option('legacy-host')
+            ?: env('LEGACY_DB_HOST')
+            ?: ($mysqlConfig['host'] ?? '127.0.0.1');
+        $legacyPort = $this->option('legacy-port')
+            ?: env('LEGACY_DB_PORT')
+            ?: ($mysqlConfig['port'] ?? '3306');
         $legacyDatabase = $this->option('legacy-database') ?: env('LEGACY_DB_DATABASE');
-        $legacyUsername = $this->option('legacy-username') ?: env('LEGACY_DB_USERNAME', env('DB_USERNAME'));
-        $legacyPassword = $this->option('legacy-password') ?: env('LEGACY_DB_PASSWORD', env('DB_PASSWORD'));
+        $legacyUsername = $this->option('legacy-username')
+            ?: env('LEGACY_DB_USERNAME')
+            ?: ($mysqlConfig['username'] ?? '');
+        $legacyPassword = $this->option('legacy-password')
+            ?: env('LEGACY_DB_PASSWORD')
+            ?: ($mysqlConfig['password'] ?? '');
+        $legacyCharset = env('LEGACY_DB_CHARSET') ?: ($mysqlConfig['charset'] ?? 'utf8mb4');
+        $legacyCollation = env('LEGACY_DB_COLLATION') ?: ($mysqlConfig['collation'] ?? 'utf8mb4_unicode_ci');
 
         if (empty($legacyDatabase)) {
             throw new \RuntimeException('Debes indicar la BD legacy con --legacy-database o LEGACY_DB_DATABASE.');
@@ -142,8 +153,8 @@ class MigrateLegacyActivosCommand extends Command
                 'database' => $legacyDatabase,
                 'username' => $legacyUsername,
                 'password' => $legacyPassword,
-                'charset' => env('LEGACY_DB_CHARSET', 'utf8mb4'),
-                'collation' => env('LEGACY_DB_COLLATION', 'utf8mb4_unicode_ci'),
+                'charset' => $legacyCharset,
+                'collation' => $legacyCollation,
                 'prefix' => '',
                 'prefix_indexes' => true,
                 'strict' => false,
