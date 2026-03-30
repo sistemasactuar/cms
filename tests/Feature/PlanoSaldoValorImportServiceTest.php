@@ -292,16 +292,35 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         );
 
         $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
-        $contenidoGou = $this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv');
-
         $rowsRe = $this->parseCsvContent($contenidoRe);
-        $rowsGou = $this->parseCsvContent($contenidoGou);
+        $zipEntries = $this->listZipEntries($resultado['zip_path']);
+        $gouEntries = array_values(array_filter(
+            $zipEntries,
+            fn (string $name): bool => str_starts_with($name, 'archivo_Gou')
+        ));
 
         $this->assertCount($totalRegistros + 1, $rowsRe);
-        $this->assertCount($totalRegistros + 1, $rowsGou);
-        $this->assertSame((string) $totalRegistros, $rowsGou[0][4]);
+        $this->assertSame([
+            'archivo_Gou_01.csv',
+            'archivo_Gou_02.csv',
+            'archivo_Gou_03.csv',
+        ], $gouEntries);
         $this->assertSame('700001', $rowsRe[1][2]);
         $this->assertSame((string) (700000 + $totalRegistros), $rowsRe[$totalRegistros][2]);
+
+        $totalDataRowsGou = 0;
+        $expectedChunkSizes = [1000, 1000, 50];
+
+        foreach ($gouEntries as $index => $gouEntry) {
+            $rowsGou = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], $gouEntry));
+
+            $this->assertCount($expectedChunkSizes[$index] + 1, $rowsGou);
+            $this->assertSame((string) $expectedChunkSizes[$index], $rowsGou[0][4]);
+
+            $totalDataRowsGou += count($rowsGou) - 1;
+        }
+
+        $this->assertSame($totalRegistros, $totalDataRowsGou);
     }
 
     private function createCsv(array $rows, string $delimiter = ';'): string
@@ -344,6 +363,30 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         }
 
         return $content;
+    }
+
+    private function listZipEntries(string $zipPath): array
+    {
+        $zip = new ZipArchive();
+        $opened = $zip->open($zipPath);
+
+        if ($opened !== true) {
+            $this->fail('No fue posible abrir el ZIP generado para listar sus archivos.');
+        }
+
+        $entries = [];
+
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $name = $zip->getNameIndex($index);
+
+            if (is_string($name)) {
+                $entries[] = $name;
+            }
+        }
+
+        $zip->close();
+
+        return $entries;
     }
 
     private function parseCsvContent(string $content): array
