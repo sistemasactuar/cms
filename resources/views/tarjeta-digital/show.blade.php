@@ -65,7 +65,7 @@
                                 <div>
                                     <span class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Fecha pago</span>
                                     <p class="mt-2 text-lg font-semibold text-slate-900">
-                                        {{ optional($record->fecha_pago)->format('d/m/Y') ?? 'No definida' }}
+                                        {{ optional($record->fecha_vigencia)->format('d/m/Y') ?? 'No definida' }}
                                     </p>
                                 </div>
                             </div>

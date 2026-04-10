@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 class PlanoSaldoValor extends Model
 {
@@ -59,15 +58,6 @@ class PlanoSaldoValor extends Model
         return (float) ($this->valor_vencido ?? 0) > 0
             ? 'saldo_vencido'
             : 'al_dia';
-    }
-
-    public function getFechaPagoAttribute(): ?Carbon
-    {
-        if (!$this->fecha_vigencia instanceof Carbon) {
-            return null;
-        }
-
-        return $this->fecha_vigencia->copy()->addDays(self::PAYMENT_TERM_DAYS);
     }
 
     public function scopeConSaldoVencido(Builder $query): Builder

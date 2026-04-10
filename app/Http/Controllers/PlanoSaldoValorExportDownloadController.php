@@ -27,8 +27,7 @@ class PlanoSaldoValorExportDownloadController extends Controller
         return response()
             ->download($path, $downloadName !== '' ? $downloadName : basename($path), [
                 'Content-Type' => 'application/zip',
-            ])
-            ->deleteFileAfterSend(true);
+            ]);
     }
 
     public static function makeCacheKey(string $token): string
