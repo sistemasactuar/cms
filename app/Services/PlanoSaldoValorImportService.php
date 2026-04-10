@@ -37,7 +37,7 @@ class PlanoSaldoValorImportService
         }
 
         $fechaConvArchivo = $fecha->format('Ymd');
-        $periodoFin = now()->addDay()->format('Ymd');
+        $periodoFin = $fecha->copy()->addDays(15)->format('Ymd');
         $datosRe = [];
         $datosGou = [];
 
@@ -88,7 +88,7 @@ class PlanoSaldoValorImportService
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
         $periodo = $fechaVigencia->format('Ym');
         $fechaConvArchivo = $fechaVigencia->format('Ymd');
-        $periodoFin = now()->addDay()->format('Ymd');
+        $periodoFin = $fechaVigencia->copy()->addDays(15)->format('Ymd');
 
         $datosRe = [];
         $datosGou = [];
@@ -523,11 +523,11 @@ class PlanoSaldoValorImportService
         $zipFileName = 'planos_procesados_' . now()->format('Ymd_His_u') . '_' . bin2hex(random_bytes(4)) . '.zip';
         $zipPath = $directory . DIRECTORY_SEPARATOR . $zipFileName;
         $csvRePath = $this->createTempCsvPath($directory, 're_');
-        $csvGouPaths = [];
-        $gouChunks = $this->buildGouChunks($datosGou);
+        $csvGouPath = $this->createTempCsvPath($directory, 'gou_');
 
         try {
             $this->writeCsvReFile($csvRePath, $datosRe);
+            $this->writeCsvGouFile($csvGouPath, $datosGou, $fechaConvArchivo);
 
             if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
                 throw new RuntimeException('No fue posible crear el archivo ZIP de salida.');
@@ -537,15 +537,8 @@ class PlanoSaldoValorImportService
                 throw new RuntimeException('No fue posible agregar archivo_Re.csv al ZIP.');
             }
 
-            foreach ($gouChunks as $index => $gouChunk) {
-                $csvGouPath = $this->createTempCsvPath($directory, 'gou_');
-                $csvGouPaths[] = $csvGouPath;
-
-                $this->writeCsvGouFile($csvGouPath, $gouChunk, $fechaConvArchivo);
-
-                if (!$zip->addFile($csvGouPath, $this->resolveGouFileName($index, count($gouChunks)))) {
-                    throw new RuntimeException('No fue posible agregar un archivo Gou al ZIP.');
-                }
+            if (!$zip->addFile($csvGouPath, 'archivo_Gou.csv')) {
+                throw new RuntimeException('No fue posible agregar archivo_Gou.csv al ZIP.');
             }
 
             if (!$zip->close()) {
@@ -564,26 +557,10 @@ class PlanoSaldoValorImportService
                 @unlink($csvRePath);
             }
 
-            foreach ($csvGouPaths as $csvGouPath) {
-                if (is_file($csvGouPath)) {
-                    @unlink($csvGouPath);
-                }
+            if (is_file($csvGouPath)) {
+                @unlink($csvGouPath);
             }
         }
-    }
-
-    private function buildGouChunks(array $datosGou): array
-    {
-        return array_chunk($datosGou, 1000);
-    }
-
-    private function resolveGouFileName(int $chunkIndex, int $totalChunks): string
-    {
-        if ($totalChunks <= 1) {
-            return 'archivo_Gou.csv';
-        }
-
-        return sprintf('archivo_Gou_%02d.csv', $chunkIndex + 1);
     }
 
     private function createTempCsvPath(string $directory, string $prefix): string

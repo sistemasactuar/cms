@@ -196,6 +196,8 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame($expectedName, $rowsRe[1][$nombreIndex]);
         $this->assertSame('', $rowsRe[1][$apellidoIndex]);
         $this->assertSame($expectedName, $rowsGou[1][3]);
+        $this->assertSame('20260324', $rowsGou[1][5]);
+        $this->assertSame('20260408', $rowsGou[1][7]);
         $this->assertLessThanOrEqual(45, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
         $this->assertLessThanOrEqual(45, mb_strlen($rowsGou[1][3], 'UTF-8'));
     }
@@ -292,35 +294,15 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         );
 
         $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
+        $contenidoGou = $this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv');
         $rowsRe = $this->parseCsvContent($contenidoRe);
-        $zipEntries = $this->listZipEntries($resultado['zip_path']);
-        $gouEntries = array_values(array_filter(
-            $zipEntries,
-            fn (string $name): bool => str_starts_with($name, 'archivo_Gou')
-        ));
+        $rowsGou = $this->parseCsvContent($contenidoGou);
 
         $this->assertCount($totalRegistros + 1, $rowsRe);
-        $this->assertSame([
-            'archivo_Gou_01.csv',
-            'archivo_Gou_02.csv',
-            'archivo_Gou_03.csv',
-        ], $gouEntries);
+        $this->assertCount($totalRegistros + 1, $rowsGou);
+        $this->assertSame((string) $totalRegistros, $rowsGou[0][4]);
         $this->assertSame('700001', $rowsRe[1][2]);
         $this->assertSame((string) (700000 + $totalRegistros), $rowsRe[$totalRegistros][2]);
-
-        $totalDataRowsGou = 0;
-        $expectedChunkSizes = [1000, 1000, 50];
-
-        foreach ($gouEntries as $index => $gouEntry) {
-            $rowsGou = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], $gouEntry));
-
-            $this->assertCount($expectedChunkSizes[$index] + 1, $rowsGou);
-            $this->assertSame((string) $expectedChunkSizes[$index], $rowsGou[0][4]);
-
-            $totalDataRowsGou += count($rowsGou) - 1;
-        }
-
-        $this->assertSame($totalRegistros, $totalDataRowsGou);
     }
 
     public function test_it_can_export_a_zip_from_current_database_records(): void
@@ -350,6 +332,10 @@ class PlanoSaldoValorImportServiceTest extends TestCase
             'archivo_Re.csv',
             'archivo_Gou.csv',
         ], $this->listZipEntries($resultado['zip_path']));
+
+        $rowsGou = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv'));
+        $this->assertSame('20260324', $rowsGou[1][5]);
+        $this->assertSame('20260408', $rowsGou[1][7]);
     }
 
     private function createCsv(array $rows, string $delimiter = ';'): string
