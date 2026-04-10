@@ -166,21 +166,27 @@ class PlanoSaldoValorImportServiceTest extends TestCase
     {
         $companyName = 'COMERCIALIZADORA Y DISTRIBUIDORA NACIONAL DE ALIMENTOS DEL SUR SAS';
 
-        $carteraPath = $this->createCsv([
-            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
-            ['2001', '9010', $companyName, '185000', '900000', 'MICROCREDITO'],
-        ]);
+        Carbon::setTestNow('2026-04-10 08:00:00');
 
-        $saldosPath = $this->createCsv([
-            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
-            ['2001', '9010', '125000', '810000', '14'],
-        ]);
+        try {
+            $carteraPath = $this->createCsv([
+                ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+                ['2001', '9010', $companyName, '185000', '900000', 'MICROCREDITO'],
+            ]);
 
-        $resultado = app(PlanoSaldoValorImportService::class)->import(
-            $carteraPath,
-            $saldosPath,
-            '2026-03-24',
-        );
+            $saldosPath = $this->createCsv([
+                ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+                ['2001', '9010', '125000', '810000', '14'],
+            ]);
+
+            $resultado = app(PlanoSaldoValorImportService::class)->import(
+                $carteraPath,
+                $saldosPath,
+                '2026-03-24',
+            );
+        } finally {
+            Carbon::setTestNow();
+        }
 
         $expectedName = rtrim(mb_substr($companyName, 0, 35, 'UTF-8'));
         $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
@@ -198,7 +204,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('', $rowsRe[1][$apellidoIndex]);
         $this->assertSame($expectedName, $rowsGou[1][3]);
         $this->assertSame('20260324', $rowsGou[1][5]);
-        $this->assertSame('20260408', $rowsGou[1][7]);
+        $this->assertSame('20260425', $rowsGou[1][7]);
         $this->assertLessThanOrEqual(35, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
         $this->assertLessThanOrEqual(35, mb_strlen($rowsGou[1][3], 'UTF-8'));
     }
@@ -388,23 +394,29 @@ class PlanoSaldoValorImportServiceTest extends TestCase
 
     public function test_it_can_export_a_zip_from_current_database_records(): void
     {
-        $carteraPath = $this->createCsv([
-            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
-            ['8101', '9911', 'CLIENTE ACTUAL', '98000', '450000', 'MICROCREDITO'],
-        ]);
+        Carbon::setTestNow('2026-04-10 08:00:00');
 
-        $saldosPath = $this->createCsv([
-            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
-            ['8101', '9911', '15000', '410000', '4'],
-        ]);
+        try {
+            $carteraPath = $this->createCsv([
+                ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+                ['8101', '9911', 'CLIENTE ACTUAL', '98000', '450000', 'MICROCREDITO'],
+            ]);
 
-        app(PlanoSaldoValorImportService::class)->import(
-            $carteraPath,
-            $saldosPath,
-            '2026-03-24',
-        );
+            $saldosPath = $this->createCsv([
+                ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+                ['8101', '9911', '15000', '410000', '4'],
+            ]);
 
-        $resultado = app(PlanoSaldoValorImportService::class)->exportFromDatabase('2026-03-24');
+            app(PlanoSaldoValorImportService::class)->import(
+                $carteraPath,
+                $saldosPath,
+                '2026-03-24',
+            );
+
+            $resultado = app(PlanoSaldoValorImportService::class)->exportFromDatabase('2026-03-24');
+        } finally {
+            Carbon::setTestNow();
+        }
 
         $this->assertSame(1, $resultado['procesados']);
         $this->assertSame('2026-03-24', $resultado['fecha_vigencia']);
@@ -416,7 +428,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
 
         $rowsGou = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv'));
         $this->assertSame('20260324', $rowsGou[1][5]);
-        $this->assertSame('20260408', $rowsGou[1][7]);
+        $this->assertSame('20260425', $rowsGou[1][7]);
     }
 
     private function createCsv(array $rows, string $delimiter = ';'): string

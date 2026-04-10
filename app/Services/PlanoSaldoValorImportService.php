@@ -39,7 +39,7 @@ class PlanoSaldoValorImportService
         }
 
         $fechaConvArchivo = $fecha->format('Ymd');
-        $periodoFin = $fecha->copy()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
+        $periodoFin = $this->resolvePeriodoFin();
         $datosRe = [];
         $datosGou = [];
 
@@ -90,7 +90,7 @@ class PlanoSaldoValorImportService
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
         $periodo = $fechaVigencia->format('Ym');
         $fechaConvArchivo = $fechaVigencia->format('Ymd');
-        $periodoFin = $fechaVigencia->copy()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
+        $periodoFin = $this->resolvePeriodoFin();
 
         $datosRe = [];
         $datosGou = [];
@@ -484,6 +484,11 @@ class PlanoSaldoValorImportService
         }
 
         throw new RuntimeException('No hay registros con fecha de vigencia para generar el ZIP.');
+    }
+
+    private function resolvePeriodoFin(): string
+    {
+        return now()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
     }
 
     private function indexRows(string $path): array
