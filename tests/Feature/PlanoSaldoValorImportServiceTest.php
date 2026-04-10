@@ -161,7 +161,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('nuevo', $saldoCero->estado_movimiento);
     }
 
-    public function test_it_truncates_company_name_to_45_characters_in_generated_files(): void
+    public function test_it_truncates_company_name_to_35_characters_in_generated_files(): void
     {
         $companyName = 'COMERCIALIZADORA Y DISTRIBUIDORA NACIONAL DE ALIMENTOS DEL SUR SAS';
 
@@ -181,7 +181,7 @@ class PlanoSaldoValorImportServiceTest extends TestCase
             '2026-03-24',
         );
 
-        $expectedName = rtrim(mb_substr($companyName, 0, 45, 'UTF-8'));
+        $expectedName = rtrim(mb_substr($companyName, 0, 35, 'UTF-8'));
         $contenidoRe = $this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv');
         $contenidoGou = $this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv');
 
@@ -198,8 +198,8 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame($expectedName, $rowsGou[1][3]);
         $this->assertSame('20260324', $rowsGou[1][5]);
         $this->assertSame('20260408', $rowsGou[1][7]);
-        $this->assertLessThanOrEqual(45, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
-        $this->assertLessThanOrEqual(45, mb_strlen($rowsGou[1][3], 'UTF-8'));
+        $this->assertLessThanOrEqual(35, mb_strlen($rowsRe[1][$nombreIndex], 'UTF-8'));
+        $this->assertLessThanOrEqual(35, mb_strlen($rowsGou[1][3], 'UTF-8'));
     }
 
     public function test_it_registers_daily_snapshots_and_detects_balance_changes(): void

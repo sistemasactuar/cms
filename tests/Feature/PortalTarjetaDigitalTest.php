@@ -72,7 +72,8 @@ class PortalTarjetaDigitalTest extends TestCase
         $this->get('/tarjeta-digital/descarga')
             ->assertOk()
             ->assertSee('Laura Ramirez')
-            ->assertSee('100200300');
+            ->assertSee('100200300')
+            ->assertSee('08/04/2026');
 
         $this->get('/tarjeta-digital/descargar/' . $record->id)
             ->assertOk()

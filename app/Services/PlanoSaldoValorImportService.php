@@ -12,6 +12,8 @@ use ZipArchive;
 
 class PlanoSaldoValorImportService
 {
+    private const COMPANY_NAME_MAX_LENGTH = 35;
+
     public function exportFromDatabase(mixed $fechaVigencia = null): array
     {
         if (function_exists('set_time_limit')) {
@@ -37,7 +39,7 @@ class PlanoSaldoValorImportService
         }
 
         $fechaConvArchivo = $fecha->format('Ymd');
-        $periodoFin = $fecha->copy()->addDays(15)->format('Ymd');
+        $periodoFin = $fecha->copy()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
         $datosRe = [];
         $datosGou = [];
 
@@ -88,7 +90,7 @@ class PlanoSaldoValorImportService
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
         $periodo = $fechaVigencia->format('Ym');
         $fechaConvArchivo = $fechaVigencia->format('Ymd');
-        $periodoFin = $fechaVigencia->copy()->addDays(15)->format('Ymd');
+        $periodoFin = $fechaVigencia->copy()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
 
         $datosRe = [];
         $datosGou = [];
@@ -1136,7 +1138,10 @@ class PlanoSaldoValorImportService
         }
 
         if ($this->looksLikeCompanyName($nombreBase, $nombres, $apellidos, ...$rows)) {
-            $companyName = $this->truncateExportText($nombreBase !== '' ? $nombreBase : trim($nombres . ' ' . $apellidos), 45);
+            $companyName = $this->truncateExportText(
+                $nombreBase !== '' ? $nombreBase : trim($nombres . ' ' . $apellidos),
+                self::COMPANY_NAME_MAX_LENGTH
+            );
 
             return [
                 're_nombre' => $companyName,
@@ -1202,7 +1207,8 @@ class PlanoSaldoValorImportService
             'AP - NOMBRE 2',
         ]) !== null;
 
-        return !$hasStructuredPersonName && mb_strlen(trim($nombreBase), 'UTF-8') > 45;
+        return !$hasStructuredPersonName
+            && mb_strlen(trim($nombreBase), 'UTF-8') > self::COMPANY_NAME_MAX_LENGTH;
     }
 
     private function normalizeExportText(string $text): string

@@ -23,7 +23,7 @@ class PlanoSaldoValorCardImageService
         $panelBorder = imagecolorallocatealpha($image, 196, 236, 255, 92);
 
         $credito = trim((string) $record->obligacion);
-        $fechaPago = $this->formatFechaPago($record->fecha_vigencia);
+        $fechaPago = $this->formatFechaPago($record->fecha_pago);
         $valorCuotaFuente = $record->valor_cuota ?? $record->valor_reportar ?? 0;
         $valorCuota = '$' . number_format((float) $valorCuotaFuente, 0, ',', '.');
 
