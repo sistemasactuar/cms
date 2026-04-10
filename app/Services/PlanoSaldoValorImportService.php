@@ -169,6 +169,13 @@ class PlanoSaldoValorImportService
                 continue;
             }
 
+            $rowKey = $resultadoFila['row_key'];
+
+            if (isset($resultadoFila['datos_re'], $resultadoFila['datos_gou'])) {
+                $datosRe[$rowKey] = $resultadoFila['datos_re'];
+                $datosGou[$rowKey] = $resultadoFila['datos_gou'];
+            }
+
             if ($resultadoFila['status'] === 'ignored') {
                 $ignoradosIguales++;
                 continue;
@@ -179,10 +186,6 @@ class PlanoSaldoValorImportService
             } else {
                 $actualizados++;
             }
-
-            $rowKey = $resultadoFila['row_key'];
-            $datosRe[$rowKey] = $resultadoFila['datos_re'];
-            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
         }
 
         $procesados = $creados + $actualizados;
@@ -268,6 +271,13 @@ class PlanoSaldoValorImportService
                 continue;
             }
 
+            $rowKey = $resultadoFila['row_key'];
+
+            if (isset($resultadoFila['datos_re'], $resultadoFila['datos_gou'])) {
+                $datosRe[$rowKey] = $resultadoFila['datos_re'];
+                $datosGou[$rowKey] = $resultadoFila['datos_gou'];
+            }
+
             if ($resultadoFila['status'] === 'ignored') {
                 $ignoradosIguales++;
                 continue;
@@ -278,10 +288,6 @@ class PlanoSaldoValorImportService
             } else {
                 $actualizados++;
             }
-
-            $rowKey = $resultadoFila['row_key'];
-            $datosRe[$rowKey] = $resultadoFila['datos_re'];
-            $datosGou[$rowKey] = $resultadoFila['datos_gou'];
         }
     }
 
@@ -350,6 +356,19 @@ class PlanoSaldoValorImportService
                 'status' => 'ignored',
                 'row_key' => $cc . '|' . $obligacion,
                 'record' => $record,
+                ...$this->buildExportRows(
+                    $cc,
+                    $obligacion,
+                    $nombres,
+                    $apellidos,
+                    $valorReportar,
+                    $periodo,
+                    $fechaConvArchivo,
+                    $periodoFin,
+                    $observacion,
+                    $carteraRow,
+                    $saldosRow,
+                ),
             ];
         }
 
@@ -674,11 +693,19 @@ class PlanoSaldoValorImportService
             ? round($saldoCapital - (float) $previousSnapshot->saldo_capital, 2)
             : null;
 
-        $snapshot = PlanoSaldoValorSaldoDiario::firstOrNew([
-            'fecha_archivo' => $fechaArchivo->toDateString(),
-            'cc' => $cc,
-            'obligacion' => $obligacion,
-        ]);
+        $snapshot = PlanoSaldoValorSaldoDiario::query()
+            ->where('cc', $cc)
+            ->where('obligacion', $obligacion)
+            ->whereDate('fecha_archivo', $fechaArchivo->toDateString())
+            ->first();
+
+        if ($snapshot === null) {
+            $snapshot = new PlanoSaldoValorSaldoDiario([
+                'fecha_archivo' => $fechaArchivo->toDateString(),
+                'cc' => $cc,
+                'obligacion' => $obligacion,
+            ]);
+        }
 
         $snapshot->fill([
             'plano_saldo_valor_id' => $record?->id,
@@ -692,7 +719,10 @@ class PlanoSaldoValorImportService
             'variacion_valor_vencido' => $variacionValorVencido,
             'variacion_saldo_capital' => $variacionSaldoCapital,
         ]);
-        $snapshot->save();
+
+        if (!$snapshot->exists || $snapshot->isDirty()) {
+            $snapshot->save();
+        }
 
         if ($record === null) {
             return;
@@ -710,7 +740,10 @@ class PlanoSaldoValorImportService
             'valor_reportar' => $saldoCapital > 0 ? $record->valor_reportar : 0,
             'fecha_vigencia' => $fechaArchivo->toDateString(),
         ]);
-        $record->save();
+
+        if ($record->isDirty()) {
+            $record->save();
+        }
 
         if ($snapshot->plano_saldo_valor_id !== $record->id) {
             $snapshot->plano_saldo_valor_id = $record->id;

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\PlanoSaldoValor;
 use App\Models\PlanoSaldoValorSaldoDiario;
 use App\Services\PlanoSaldoValorImportService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -253,6 +254,86 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame(210000.0, (float) $snapshots[1]->valor_reportar);
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_valor_vencido);
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_saldo_capital);
+    }
+
+    public function test_it_still_generates_zip_when_all_rows_match_existing_records(): void
+    {
+        $carteraRows = [
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+            ['4001', '9951', 'LUISA GARCIA', '110000', '650000', 'MICROCREDITO'],
+            ['4002', '9952', 'PEDRO MARTINEZ', '95000', '500000', 'MICROCREDITO'],
+        ];
+
+        $saldosRows = [
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['4001', '9951', '75000', '650000', '7'],
+            ['4002', '9952', '35000', '500000', '3'],
+        ];
+
+        $carteraPath = $this->createCsv($carteraRows);
+        $saldosPath = $this->createCsv($saldosRows);
+
+        Carbon::setTestNow('2026-03-24 09:00:00');
+
+        try {
+            app(PlanoSaldoValorImportService::class)->import(
+                $carteraPath,
+                $saldosPath,
+                '2026-03-24',
+            );
+
+            $recordAntes = PlanoSaldoValor::query()
+                ->where('cc', '9951')
+                ->where('obligacion', '4001')
+                ->firstOrFail();
+
+            $snapshotAntes = PlanoSaldoValorSaldoDiario::query()
+                ->where('cc', '9951')
+                ->where('obligacion', '4001')
+                ->whereDate('fecha_archivo', '2026-03-24')
+                ->firstOrFail();
+
+            Carbon::setTestNow('2026-03-24 10:00:00');
+
+            $resultado = app(PlanoSaldoValorImportService::class)->import(
+                $carteraPath,
+                $saldosPath,
+                '2026-03-24',
+            );
+
+            $recordDespues = $recordAntes->fresh();
+            $snapshotDespues = $snapshotAntes->fresh();
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertSame(0, $resultado['procesados']);
+        $this->assertSame(0, $resultado['creados']);
+        $this->assertSame(0, $resultado['actualizados']);
+        $this->assertSame(2, $resultado['ignorados_iguales']);
+        $this->assertFileExists($resultado['zip_path']);
+        $this->assertSame([
+            'archivo_Re.csv',
+            'archivo_Gou.csv',
+        ], $this->listZipEntries($resultado['zip_path']));
+
+        $rowsRe = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], 'archivo_Re.csv'));
+        $rowsGou = $this->parseCsvContent($this->readZipEntry($resultado['zip_path'], 'archivo_Gou.csv'));
+
+        $this->assertCount(3, $rowsRe);
+        $this->assertCount(3, $rowsGou);
+        $this->assertSame('4001', $rowsRe[1][2]);
+        $this->assertSame('4002', $rowsRe[2][2]);
+        $this->assertTrue($recordDespues !== null);
+        $this->assertTrue($snapshotDespues !== null);
+        $this->assertSame(
+            $recordAntes->updated_at?->toDateTimeString(),
+            $recordDespues?->updated_at?->toDateTimeString(),
+        );
+        $this->assertSame(
+            $snapshotAntes->updated_at?->toDateTimeString(),
+            $snapshotDespues?->updated_at?->toDateTimeString(),
+        );
     }
 
     public function test_it_generates_complete_zip_files_for_more_than_two_thousand_rows(): void
