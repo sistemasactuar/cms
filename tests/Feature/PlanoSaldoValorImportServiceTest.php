@@ -162,6 +162,47 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('nuevo', $saldoCero->estado_movimiento);
     }
 
+    public function test_it_uses_the_ten_percent_threshold_when_overdue_is_lower_than_quota(): void
+    {
+        $carteraPath = $this->createCsv([
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD'],
+            ['1101', '9101', 'CARLOS RUIZ', '150000', '500000', 'MICROCREDITO'],
+            ['1102', '9102', 'LINA TORRES', '150000', '500000', 'MICROCREDITO'],
+        ]);
+
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'TOTAL_VENCIDO', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['1101', '9101', '10000', '450000', '4'],
+            ['1102', '9102', '15000', '470000', '5'],
+        ]);
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $this->assertSame(2, $resultado['procesados']);
+
+        $creditoDebajoDelUmbral = PlanoSaldoValor::query()
+            ->where('obligacion', '1101')
+            ->firstOrFail();
+
+        $this->assertSame(150000.0, (float) $creditoDebajoDelUmbral->valor_reportar);
+        $this->assertSame(150000.0, (float) $creditoDebajoDelUmbral->valor_cuota);
+        $this->assertSame(10000.0, (float) $creditoDebajoDelUmbral->valor_vencido);
+        $this->assertSame('Valor cuota', $creditoDebajoDelUmbral->observacion);
+
+        $creditoEnElUmbral = PlanoSaldoValor::query()
+            ->where('obligacion', '1102')
+            ->firstOrFail();
+
+        $this->assertSame(165000.0, (float) $creditoEnElUmbral->valor_reportar);
+        $this->assertSame(150000.0, (float) $creditoEnElUmbral->valor_cuota);
+        $this->assertSame(15000.0, (float) $creditoEnElUmbral->valor_vencido);
+        $this->assertSame('Cuota + vencido', $creditoEnElUmbral->observacion);
+    }
+
     public function test_it_truncates_company_name_to_35_characters_in_generated_files(): void
     {
         $companyName = 'COMERCIALIZADORA Y DISTRIBUIDORA NACIONAL DE ALIMENTOS DEL SUR SAS';
