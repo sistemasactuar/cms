@@ -824,10 +824,10 @@ class PlanoSaldoValorImportService
             $umbralMinimoVencido = round($valorCuota * 0.10, 2);
 
             if ($valorVencido >= $umbralMinimoVencido) {
-                return [round($valorCuota + $valorVencido, 2), 'Cuota + vencido'];
+                return [round($valorCuota, 2), 'Valor cuota'];
             }
 
-            return [round($valorCuota, 2), 'Valor cuota'];
+            return [round($valorCuota + $valorVencido, 2), 'Cuota + vencido'];
         }
 
         return [round($valorCuota, 2), 'Valor cuota'];
