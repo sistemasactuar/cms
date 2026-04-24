@@ -200,6 +200,39 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame('Valor cuota', $creditoEnElUmbral->observacion);
     }
 
+    public function test_it_accepts_legacy_semicolon_complementario_and_falls_back_to_its_quota(): void
+    {
+        $complementarioPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'NOMBRES', 'APELLIDOS', 'VLR_CUOTA', 'MODALIDAD'],
+            ['5101', '95101', 'LUZ', 'MENA', '125000', 'MICROCREDITO'],
+        ]);
+
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'DIAS_MORA', 'SALDO_CAPITAL', 'CAPITAL_VENCIDO', 'INTERES_VENCIDO', 'VALOR_MORA', 'TOTAL_VENCIDO'],
+            ['5101', '95101', '3', '420000', '30000', '5000', '0', '35000'],
+        ]);
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            $complementarioPath,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $this->assertSame(1, $resultado['procesados']);
+
+        $record = PlanoSaldoValor::query()
+            ->where('obligacion', '5101')
+            ->where('cc', '95101')
+            ->firstOrFail();
+
+        $this->assertSame('LUZ', $record->nombres);
+        $this->assertSame('MENA', $record->apellidos);
+        $this->assertSame('MICROCREDITO', $record->modalidad);
+        $this->assertSame(125000.0, (float) $record->valor_cuota);
+        $this->assertSame(125000.0, (float) $record->valor_reportar);
+        $this->assertSame('Valor cuota', $record->observacion);
+    }
+
     public function test_it_preserves_existing_personal_data_when_a_saldos_row_has_no_complement_match(): void
     {
         PlanoSaldoValor::query()->create([

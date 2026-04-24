@@ -76,7 +76,10 @@ class PlanoSaldoValorImportService
             throw new RuntimeException('No se encontro el archivo de saldos Aicoll.');
         }
 
-        $complementarioRows = $this->readCsvAssoc($complementarioPath, '|');
+        $complementarioRows = $this->readCsvAssoc(
+            $complementarioPath,
+            $this->detectCsvDelimiter($complementarioPath, ['|', ';'])
+        );
         [$saldosByCredito, $saldosByDocumento, $saldosRows, $registrosSaldos] = $this->indexRows($saldosPath);
 
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
@@ -460,6 +463,44 @@ class PlanoSaldoValorImportService
     private function resolvePeriodoFin(): string
     {
         return now()->addDays(PlanoSaldoValor::PAYMENT_TERM_DAYS)->format('Ymd');
+    }
+
+    private function detectCsvDelimiter(string $path, array $candidates = [';', '|', ',']): string
+    {
+        $handle = fopen($path, 'rb');
+
+        if ($handle === false) {
+            return $candidates[0] ?? ';';
+        }
+
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $line = preg_replace('/^\xEF\xBB\xBF/u', '', (string) $line) ?? (string) $line;
+                $line = trim($line);
+
+                if ($line === '') {
+                    continue;
+                }
+
+                $bestDelimiter = $candidates[0] ?? ';';
+                $bestScore = -1;
+
+                foreach ($candidates as $candidate) {
+                    $score = substr_count($line, $candidate);
+
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $bestDelimiter = $candidate;
+                    }
+                }
+
+                return $bestDelimiter;
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        return $candidates[0] ?? ';';
     }
 
     private function indexRows(string $path): array

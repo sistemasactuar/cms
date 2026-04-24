@@ -215,7 +215,7 @@ class PlanoSaldoValorResource extends Resource
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('Debe venir separado por | e incluir: AP - Identificación, AP - Nombre 1, AP - Nombre 2, AP - Apellido 1, AP - Apellido 2, CA - Valor Cuota, CA - Número de Obligación y CA - Código Modalidad.')
+                            ->helperText('Acepta el archivo AP separado por | y tambien el layout legado separado por ;. De aqui se toman nombres, apellidos, modalidad y la cuota si no viene en saldos.')
                             ->required(),
                         Forms\Components\FileUpload::make('archivo_saldos')
                             ->label('Archivo de saldos diarios Aicoll (.csv)')
