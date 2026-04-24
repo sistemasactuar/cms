@@ -303,6 +303,76 @@ class PlanoSaldoValorImportServiceTest extends TestCase
         $this->assertSame(-60000.0, (float) $snapshots[1]->variacion_saldo_capital);
     }
 
+    public function test_it_can_import_without_monthly_cartera_when_saldos_contains_quota(): void
+    {
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'DIAS_MORA', 'DIAS_LINIX', 'TOTAL_T_1_ALIVIO', 'T_1_ALIVIO', 'VALOR_CUOTA', 'VALOR_MORA', 'SALDO_CAPITAL', 'CAPITAL_VENCIDO', 'INTERES_VENCIDO', 'SALDO_TOTAL', 'TOTAL_VENCIDO', 'NOVEDADES', 'ESTADO_COBRO', 'FECHA_CUOTA'],
+            ['5101', '9201', '8', '8', '0', '0', '120000', '2000', '450000', '10000', '3000', '465000', '', 'NINGUNA', 'ACTIVO', '2026-03-30'],
+        ]);
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            null,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $this->assertSame(1, $resultado['procesados']);
+        $this->assertSame(1, $resultado['creados']);
+        $this->assertSame(0, $resultado['actualizados']);
+        $this->assertSame(0, $resultado['ignorados_iguales']);
+        $this->assertFileExists($resultado['zip_path']);
+
+        $record = PlanoSaldoValor::query()
+            ->where('obligacion', '5101')
+            ->where('cc', '9201')
+            ->firstOrFail();
+
+        $this->assertSame(120000.0, (float) $record->valor_cuota);
+        $this->assertSame(15000.0, (float) $record->valor_vencido);
+        $this->assertSame(120000.0, (float) $record->valor_reportar);
+        $this->assertSame('saldos_diario', $record->origen_registro);
+        $this->assertSame('Valor cuota', $record->observacion);
+
+        $snapshot = PlanoSaldoValorSaldoDiario::query()
+            ->where('obligacion', '5101')
+            ->where('cc', '9201')
+            ->firstOrFail();
+
+        $this->assertSame(120000.0, (float) $snapshot->valor_cuota);
+        $this->assertSame(15000.0, (float) $snapshot->valor_vencido);
+    }
+
+    public function test_it_falls_back_to_reference_overdue_when_saldos_does_not_provide_it(): void
+    {
+        $carteraPath = $this->createCsv([
+            ['NO_OBLIGACION', 'ID_CLIENTE', 'NOMBRE', 'VLR_CUOTA', 'SALDO_CAPITAL', 'MODALIDAD', 'VALOR_VENCIDO'],
+            ['6101', '9301', 'SOFIA PARRA', '130000', '480000', 'MICROCREDITO', '18000'],
+        ]);
+
+        $saldosPath = $this->createCsv([
+            ['NUMERO_CREDITO', 'NUMERO_DOCUMENTO', 'VALOR_CUOTA', 'SALDO_CAPITAL', 'DIAS_MORA'],
+            ['6101', '9301', '130000', '470000', '6'],
+        ]);
+
+        $resultado = app(PlanoSaldoValorImportService::class)->import(
+            $carteraPath,
+            $saldosPath,
+            '2026-03-24',
+        );
+
+        $this->assertSame(1, $resultado['procesados']);
+
+        $record = PlanoSaldoValor::query()
+            ->where('obligacion', '6101')
+            ->where('cc', '9301')
+            ->firstOrFail();
+
+        $this->assertSame(18000.0, (float) $record->valor_vencido);
+        $this->assertSame(130000.0, (float) $record->valor_cuota);
+        $this->assertSame(130000.0, (float) $record->valor_reportar);
+        $this->assertSame('Valor cuota', $record->observacion);
+    }
+
     public function test_it_still_generates_zip_when_all_rows_match_existing_records(): void
     {
         $carteraRows = [

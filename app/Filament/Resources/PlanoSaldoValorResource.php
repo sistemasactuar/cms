@@ -210,18 +210,18 @@ class PlanoSaldoValorResource extends Resource
                     ->icon('heroicon-o-arrow-up-tray')
                     ->form([
                         Forms\Components\FileUpload::make('archivo_cartera')
-                            ->label('Archivo de cartera (.csv)')
+                            ->label('Archivo de cartera mensual (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('De este archivo se toma el valor de la cuota.')
-                            ->required(),
+                            ->helperText('Opcional. Si no se carga, la cuota se toma del archivo de saldos y la cartera mensual queda solo como apoyo para nombres, modalidad y cruces adicionales.')
+                            ->required(false),
                         Forms\Components\FileUpload::make('archivo_saldos')
                             ->label('Archivo de saldos diarios Aicoll (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('Este archivo representa la foto diaria de saldos. Se usa para actualizar el consolidado y guardar el historial diario.')
+                            ->helperText('Este archivo representa la foto diaria de saldos. Debe venir con columnas como NUMERO_CREDITO, NUMERO_DOCUMENTO, DIAS_MORA, VALOR_CUOTA, VALOR_MORA, SALDO_CAPITAL, CAPITAL_VENCIDO, INTERES_VENCIDO, TOTAL_VENCIDO y FECHA_CUOTA. Se usa para actualizar el consolidado y guardar el historial diario.')
                             ->required(),
                         Forms\Components\FileUpload::make('archivo_post_cierre')
                             ->label('Creditos posteriores al cierre (.txt/.csv)')
@@ -236,7 +236,9 @@ class PlanoSaldoValorResource extends Resource
                             ->default(now()),
                     ])
                     ->action(function (array $data) {
-                        $carteraPath = Storage::disk('public')->path($data['archivo_cartera']);
+                        $carteraPath = !empty($data['archivo_cartera'])
+                            ? Storage::disk('public')->path($data['archivo_cartera'])
+                            : null;
                         $saldosPath = Storage::disk('public')->path($data['archivo_saldos']);
                         $postCierrePath = null;
 
@@ -245,7 +247,7 @@ class PlanoSaldoValorResource extends Resource
                         }
 
                         if (
-                            !file_exists($carteraPath)
+                            ($carteraPath !== null && !file_exists($carteraPath))
                             || !file_exists($saldosPath)
                             || ($postCierrePath !== null && !file_exists($postCierrePath))
                         ) {

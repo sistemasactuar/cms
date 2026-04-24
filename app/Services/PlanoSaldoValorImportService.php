@@ -59,7 +59,7 @@ class PlanoSaldoValorImportService
     }
 
     public function import(
-        string $carteraPath,
+        ?string $carteraPath,
         string $saldosPath,
         mixed $fechaArchivo,
         ?string $postCierrePath = null
@@ -69,7 +69,7 @@ class PlanoSaldoValorImportService
             @set_time_limit(0);
         }
 
-        if (!is_file($carteraPath)) {
+        if (is_string($carteraPath) && trim($carteraPath) !== '' && !is_file($carteraPath)) {
             throw new RuntimeException('No se encontro el archivo de cartera.');
         }
 
@@ -81,7 +81,9 @@ class PlanoSaldoValorImportService
             throw new RuntimeException('No se encontro el archivo de creditos posteriores al cierre.');
         }
 
-        $carteraRows = $this->readCsvAssoc($carteraPath);
+        $carteraRows = is_string($carteraPath) && trim($carteraPath) !== ''
+            ? $this->readCsvAssoc($carteraPath)
+            : [];
         $postCierreRows = is_string($postCierrePath) && trim($postCierrePath) !== ''
             ? $this->readCsvAssoc($postCierrePath, '|')
             : null;
@@ -102,24 +104,26 @@ class PlanoSaldoValorImportService
         $matchedSaldosRowIds = [];
         $processedReferenceKeys = [];
 
-        $this->importReferenceRows(
-            $carteraRows,
-            'mensual',
-            $processedReferenceKeys,
-            $matchedSaldosRowIds,
-            $datosRe,
-            $datosGou,
-            $creados,
-            $actualizados,
-            $ignoradosIguales,
-            $sinCoincidenciaSaldos,
-            $saldosByCredito,
-            $saldosByDocumento,
-            $periodo,
-            $fechaConvArchivo,
-            $periodoFin,
-            $fechaVigencia,
-        );
+        if ($carteraRows !== []) {
+            $this->importReferenceRows(
+                $carteraRows,
+                'mensual',
+                $processedReferenceKeys,
+                $matchedSaldosRowIds,
+                $datosRe,
+                $datosGou,
+                $creados,
+                $actualizados,
+                $ignoradosIguales,
+                $sinCoincidenciaSaldos,
+                $saldosByCredito,
+                $saldosByDocumento,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $fechaVigencia,
+            );
+        }
 
         if ($postCierreRows !== null) {
             $this->importReferenceRows(
@@ -307,8 +311,8 @@ class PlanoSaldoValorImportService
             return null;
         }
 
-        $valorCuota = $this->extractValorCuota($carteraRow);
-        $valorVencido = $this->extractValorVencido($saldosRow);
+        $valorCuota = $this->extractValorCuota($saldosRow, $carteraRow);
+        $valorVencido = $this->extractValorVencido($saldosRow, $carteraRow);
         $saldoCapital = $this->extractSaldoCapital($saldosRow, $carteraRow);
 
         if ($saldoCapital <= 0) {
@@ -672,12 +676,12 @@ class PlanoSaldoValorImportService
             return;
         }
 
-        $valorVencido = $this->extractValorVencido($saldosRow);
+        $valorVencido = $this->extractValorVencido($saldosRow, $referenceRow);
         $saldoCapital = $this->extractSaldoCapital($saldosRow, $referenceRow);
         $diasMora = $this->extractDiasMora($saldosRow, $referenceRow);
         $valorCuota = $record?->valor_cuota !== null
             ? (float) $record->valor_cuota
-            : $this->extractValorCuota($referenceRow);
+            : $this->extractValorCuota($saldosRow, $referenceRow);
         $valorReportar = $saldoCapital > 0
             ? $this->calcularValorReportar($valorCuota, $valorVencido)[0]
             : 0.0;
@@ -1067,9 +1071,9 @@ class PlanoSaldoValorImportService
         ]));
     }
 
-    private function extractValorCuota(?array $carteraRow): float
+    private function extractValorCuota(?array ...$rows): float
     {
-        return $this->toFloat($this->pickValue([$carteraRow], [
+        return $this->toFloat($this->pickValue($rows, [
             'VALOR_CUOTA',
             'VLR_CUOTA',
             'CA - VALOR CUOTA',
@@ -1077,14 +1081,39 @@ class PlanoSaldoValorImportService
         ]));
     }
 
-    private function extractValorVencido(?array $saldosRow): float
+    private function extractValorVencido(?array ...$rows): float
     {
-        return $this->toFloat($this->pickValue([$saldosRow], [
+        $saldosRow = $rows[0] ?? null;
+        $referenceRows = array_slice($rows, 1);
+
+        $valorDesdeSaldos = $this->extractValorVencidoFromRows($saldosRow !== null ? [$saldosRow] : []);
+
+        if ($valorDesdeSaldos > 0) {
+            return $valorDesdeSaldos;
+        }
+
+        return $this->extractValorVencidoFromRows($referenceRows);
+    }
+
+    private function extractValorVencidoFromRows(array $rows): float
+    {
+        $totalVencido = $this->toFloat($this->pickValue($rows, [
             'TOTAL_VENCIDO',
             'VALOR_VENCIDO',
             'VENC_CAPITAL',
             'VENCIDO_CAPITAL',
         ]));
+
+        if ($totalVencido > 0) {
+            return $totalVencido;
+        }
+
+        return round(
+            $this->toFloat($this->pickValue($rows, ['CAPITAL_VENCIDO']))
+            + $this->toFloat($this->pickValue($rows, ['INTERES_VENCIDO']))
+            + $this->toFloat($this->pickValue($rows, ['VALOR_MORA'])),
+            2
+        );
     }
 
     private function extractSaldoCapital(?array ...$rows): float
