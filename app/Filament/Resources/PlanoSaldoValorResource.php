@@ -147,6 +147,7 @@ class PlanoSaldoValorResource extends Resource
                     ->options([
                         'mensual' => 'Mensual',
                         'post_cierre' => 'Post cierre',
+                        'complementario' => 'Complementario',
                         'saldos_diario' => 'Solo saldos diario',
                     ]),
                 Tables\Filters\SelectFilter::make('estado_registro')
@@ -209,45 +210,32 @@ class PlanoSaldoValorResource extends Resource
                     ->label('Importar Plano')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->form([
-                        Forms\Components\FileUpload::make('archivo_cartera')
-                            ->label('Archivo de cartera (.csv)')
+                        Forms\Components\FileUpload::make('archivo_complementario')
+                            ->label('Archivo complementario (.txt/.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('De este archivo se toma el valor de la cuota.')
+                            ->helperText('Debe venir separado por | e incluir: AP - Identificación, AP - Nombre 1, AP - Nombre 2, AP - Apellido 1, AP - Apellido 2, CA - Valor Cuota, CA - Número de Obligación y CA - Código Modalidad.')
                             ->required(),
                         Forms\Components\FileUpload::make('archivo_saldos')
                             ->label('Archivo de saldos diarios Aicoll (.csv)')
                             ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
                             ->disk('public')
                             ->directory('planos/saldos')
-                            ->helperText('Este archivo representa la foto diaria de saldos. Se usa para actualizar el consolidado y guardar el historial diario.')
+                            ->helperText('Este archivo representa la foto diaria de saldos. De aqui se toma la cuota, el saldo capital, el valor vencido y los dias de mora.')
                             ->required(),
-                        Forms\Components\FileUpload::make('archivo_post_cierre')
-                            ->label('Creditos posteriores al cierre (.txt/.csv)')
-                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
-                            ->disk('public')
-                            ->directory('planos/saldos')
-                            ->helperText('Opcional. Complementa la cartera mensual con creditos nuevos que entraron despues del cierre. El archivo debe venir separado por |.')
-                            ->required(false),
                         Forms\Components\DatePicker::make('fecha_archivo')
                             ->label('Fecha Vigencia Plano')
                             ->required()
                             ->default(now()),
                     ])
                     ->action(function (array $data) {
-                        $carteraPath = Storage::disk('public')->path($data['archivo_cartera']);
+                        $complementarioPath = Storage::disk('public')->path($data['archivo_complementario']);
                         $saldosPath = Storage::disk('public')->path($data['archivo_saldos']);
-                        $postCierrePath = null;
-
-                        if (!empty($data['archivo_post_cierre'])) {
-                            $postCierrePath = Storage::disk('public')->path($data['archivo_post_cierre']);
-                        }
 
                         if (
-                            !file_exists($carteraPath)
+                            !file_exists($complementarioPath)
                             || !file_exists($saldosPath)
-                            || ($postCierrePath !== null && !file_exists($postCierrePath))
                         ) {
                             Notification::make()
                                 ->title('Error')
@@ -259,10 +247,9 @@ class PlanoSaldoValorResource extends Resource
 
                         try {
                             $resultado = app(PlanoSaldoValorImportService::class)->import(
-                                $carteraPath,
+                                $complementarioPath,
                                 $saldosPath,
                                 $data['fecha_archivo'],
-                                $postCierrePath,
                             );
                         } catch (\Throwable $exception) {
                             Notification::make()
