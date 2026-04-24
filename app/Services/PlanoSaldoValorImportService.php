@@ -59,24 +59,32 @@ class PlanoSaldoValorImportService
     }
 
     public function import(
-        string $complementarioPath,
+        string $carteraPath,
         string $saldosPath,
-        mixed $fechaArchivo
+        mixed $fechaArchivo,
+        ?string $postCierrePath = null
     ): array
     {
         if (function_exists('set_time_limit')) {
             @set_time_limit(0);
         }
 
-        if (!is_file($complementarioPath)) {
-            throw new RuntimeException('No se encontro el archivo complementario.');
+        if (!is_file($carteraPath)) {
+            throw new RuntimeException('No se encontro el archivo de cartera.');
         }
 
         if (!is_file($saldosPath)) {
             throw new RuntimeException('No se encontro el archivo de saldos Aicoll.');
         }
 
-        $complementarioRows = $this->readCsvAssoc($complementarioPath, '|');
+        if (is_string($postCierrePath) && trim($postCierrePath) !== '' && !is_file($postCierrePath)) {
+            throw new RuntimeException('No se encontro el archivo de creditos posteriores al cierre.');
+        }
+
+        $carteraRows = $this->readCsvAssoc($carteraPath);
+        $postCierreRows = is_string($postCierrePath) && trim($postCierrePath) !== ''
+            ? $this->readCsvAssoc($postCierrePath, '|')
+            : null;
         [$saldosByCredito, $saldosByDocumento, $saldosRows, $registrosSaldos] = $this->indexRows($saldosPath);
 
         $fechaVigencia = $this->parseDate($fechaArchivo) ?? now();
@@ -95,8 +103,8 @@ class PlanoSaldoValorImportService
         $processedReferenceKeys = [];
 
         $this->importReferenceRows(
-            $complementarioRows,
-            'complementario',
+            $carteraRows,
+            'mensual',
             $processedReferenceKeys,
             $matchedSaldosRowIds,
             $datosRe,
@@ -112,6 +120,27 @@ class PlanoSaldoValorImportService
             $periodoFin,
             $fechaVigencia,
         );
+
+        if ($postCierreRows !== null) {
+            $this->importReferenceRows(
+                $postCierreRows,
+                'post_cierre',
+                $processedReferenceKeys,
+                $matchedSaldosRowIds,
+                $datosRe,
+                $datosGou,
+                $creados,
+                $actualizados,
+                $ignoradosIguales,
+                $sinCoincidenciaSaldos,
+                $saldosByCredito,
+                $saldosByDocumento,
+                $periodo,
+                $fechaConvArchivo,
+                $periodoFin,
+                $fechaVigencia,
+            );
+        }
 
         foreach ($saldosRows as $saldosRow) {
             if (isset($matchedSaldosRowIds[$saldosRow['__row_id']])) {
@@ -278,7 +307,7 @@ class PlanoSaldoValorImportService
             return null;
         }
 
-        $valorCuota = $this->extractValorCuota($saldosRow, $carteraRow);
+        $valorCuota = $this->extractValorCuota($carteraRow);
         $valorVencido = $this->extractValorVencido($saldosRow);
         $saldoCapital = $this->extractSaldoCapital($saldosRow, $carteraRow);
 
@@ -295,11 +324,11 @@ class PlanoSaldoValorImportService
             return null;
         }
 
+        [$nombres, $apellidos] = $this->extractNombrePartes($carteraRow, $saldosRow);
+        $modalidad = $this->extractModalidad($carteraRow, $saldosRow);
+        $diasMora = $this->extractDiasMora($saldosRow, $carteraRow);
         $record = PlanoSaldoValor::firstOrNew(['cc' => $cc, 'obligacion' => $obligacion]);
         $alreadyExists = $record->exists;
-        [$nombres, $apellidos] = $this->resolveStoredOrIncomingNameParts($record, $carteraRow, $saldosRow);
-        $modalidad = $this->resolveStoredOrIncomingModalidad($record, $carteraRow, $saldosRow);
-        $diasMora = $this->extractDiasMora($saldosRow, $carteraRow);
         $origenRegistro = $this->resolveOriginRegistro($record->origen_registro, $sourceType);
         $fechaEntradaPlano = $record->fecha_entrada_plano
             ? $this->parseDate($record->fecha_entrada_plano)?->toDateString()
@@ -648,7 +677,7 @@ class PlanoSaldoValorImportService
         $diasMora = $this->extractDiasMora($saldosRow, $referenceRow);
         $valorCuota = $record?->valor_cuota !== null
             ? (float) $record->valor_cuota
-            : $this->extractValorCuota($saldosRow, $referenceRow);
+            : $this->extractValorCuota($referenceRow);
         $valorReportar = $saldoCapital > 0
             ? $this->calcularValorReportar($valorCuota, $valorVencido)[0]
             : 0.0;
@@ -748,7 +777,6 @@ class PlanoSaldoValorImportService
             'saldos_diario' => 1,
             'post_cierre' => 2,
             'mensual' => 3,
-            'complementario' => 4,
         ];
 
         $currentOrigin = is_string($currentOrigin) ? trim($currentOrigin) : '';
@@ -1039,9 +1067,9 @@ class PlanoSaldoValorImportService
         ]));
     }
 
-    private function extractValorCuota(?array ...$rows): float
+    private function extractValorCuota(?array $carteraRow): float
     {
-        return $this->toFloat($this->pickValue($rows, [
+        return $this->toFloat($this->pickValue([$carteraRow], [
             'VALOR_CUOTA',
             'VLR_CUOTA',
             'CA - VALOR CUOTA',
@@ -1051,23 +1079,12 @@ class PlanoSaldoValorImportService
 
     private function extractValorVencido(?array $saldosRow): float
     {
-        $valorTotal = $this->pickValue([$saldosRow], [
+        return $this->toFloat($this->pickValue([$saldosRow], [
             'TOTAL_VENCIDO',
             'VALOR_VENCIDO',
             'VENC_CAPITAL',
             'VENCIDO_CAPITAL',
-        ]);
-
-        if ($valorTotal !== null) {
-            return $this->toFloat($valorTotal);
-        }
-
-        return round(
-            $this->toFloat($this->pickValue([$saldosRow], ['CAPITAL_VENCIDO']))
-            + $this->toFloat($this->pickValue([$saldosRow], ['INTERES_VENCIDO']))
-            + $this->toFloat($this->pickValue([$saldosRow], ['VALOR_MORA'])),
-            2
-        );
+        ]));
     }
 
     private function extractSaldoCapital(?array ...$rows): float
@@ -1092,8 +1109,6 @@ class PlanoSaldoValorImportService
         return trim((string) $this->pickValue($rows, [
             'MODALIDAD',
             'DETALLE_MODALIDAD',
-            'CA - CODIGO MODALIDAD',
-            'CA - CÓDIGO MODALIDAD',
         ]));
     }
 
@@ -1149,55 +1164,6 @@ class PlanoSaldoValorImportService
         }
 
         return [$nombres, $apellidos];
-    }
-
-    private function resolveStoredOrIncomingNameParts(
-        PlanoSaldoValor $record,
-        ?array ...$rows
-    ): array {
-        if ($this->hasNameData(...$rows)) {
-            return $this->extractNombrePartes(...$rows);
-        }
-
-        $nombres = trim((string) ($record->nombres ?? ''));
-        $apellidos = trim((string) ($record->apellidos ?? ''));
-
-        if ($nombres !== '' || $apellidos !== '') {
-            return [$nombres, $apellidos];
-        }
-
-        return $this->extractNombrePartes(...$rows);
-    }
-
-    private function hasNameData(?array ...$rows): bool
-    {
-        return $this->pickValue($rows, [
-            'NOMBRES',
-            'APELLIDOS',
-            'NOMBRE_CLIENTE',
-            'APELLIDO_CLIENTE',
-            'AP - NOMBRE 1',
-            'AP - NOMBRE 2',
-            'AP - APELLIDO 1',
-            'AP - APELLIDO 2',
-            'NOMBRE',
-            'NOMBRE_COMPLETO',
-            'RAZON_SOCIAL',
-            'RAZON SOCIAL',
-        ]) !== null;
-    }
-
-    private function resolveStoredOrIncomingModalidad(
-        PlanoSaldoValor $record,
-        ?array ...$rows
-    ): string {
-        $modalidad = $this->extractModalidad(...$rows);
-
-        if ($modalidad !== '') {
-            return $modalidad;
-        }
-
-        return trim((string) ($record->modalidad ?? ''));
     }
 
     private function prepareExportNames(string $nombres, string $apellidos, ?array ...$rows): array
